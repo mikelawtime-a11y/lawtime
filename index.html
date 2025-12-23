@@ -40,27 +40,6 @@
             font-size: 1.5rem;
         }
 
-        .header-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 10px;
-        }
-
-        .btn-export, .btn-settings {
-            background-color: #4CAF50;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-
-        .btn-settings {
-            background-color: #607D8B;
-        }
-
         .sync-status {
             font-size: 0.8rem;
             color: #666;
@@ -272,9 +251,6 @@
     <div class="calendar">
         <div class="header">
             <h2 id="monthYear"></h2>
-            <div class="header-buttons">
-                <button class="btn-settings" id="btnSettings">⚙️ Settings</button>
-            </div>
             <div class="sync-status" id="syncStatus"></div>
         </div>
         <div class="days" id="calendar"></div>
@@ -293,24 +269,18 @@
         </div>
     </div>
 
-
-
-    <div class="modal" id="settingsModal">
-        <div class="modal-content">
-            <h3>GitHub Sync Settings</h3>
-            <p style="font-size: 0.9rem; color: #666;">Configure auto-sync to GitHub repository</p>
-            <input type="text" id="githubOwner" placeholder="GitHub username (e.g., mikelawtime-a11y)" />
-            <input type="text" id="githubRepo" placeholder="Repository name (e.g., lawtime)" />
-            <input type="password" id="githubToken" placeholder="Fine-grained personal access token" />
-            <p style="font-size: 0.8rem; color: #999; margin: 10px 0;">⚠️ Token is stored in browser only. Never share it.</p>
-            <div class="modal-buttons">
-                <button class="btn-save" id="btnSaveSettings">Save & Sync</button>
-                <button class="btn-cancel" id="btnCancelSettings">Close</button>
-            </div>
-        </div>
-    </div>
-
     <script>
+        // ============================================
+        // GITHUB CONFIG - SET YOUR CREDENTIALS HERE
+        // ============================================
+        const GITHUB_OWNER = 'your-username';        // Your GitHub username
+        const GITHUB_REPO = 'your-repo';             // Your repository name
+        const GITHUB_TOKEN = 'your-token-here';      // Your fine-grained personal access token
+        const FILE_PATH = 'GithubCalendarApp/TimeItemData.json';
+
+        // ============================================
+        // CALENDAR VARIABLES
+        // ============================================
         const monthYear = document.getElementById('monthYear');
         const calendarEl = document.getElementById('calendar');
         const modal = document.getElementById('modal');
@@ -320,7 +290,6 @@
         const eventList = document.getElementById('eventList');
         const btnSave = document.getElementById('btnSave');
         const btnCancel = document.getElementById('btnCancel');
-        const settingsModal = document.getElementById('settingsModal');
         const syncStatus = document.getElementById('syncStatus');
 
         const today = new Date();
@@ -329,43 +298,27 @@
 
         let events = {};
         let selectedDate = null;
-        let githubConfig = JSON.parse(localStorage.getItem('githubConfig')) || {};
 
-        // Load data from TimeItemData.json on startup
-        async function loadData() {
+        // ============================================
+        // MAIN FUNCTION: ADD EVENT TO GITHUB
+        // ============================================
+        async function addEventToGitHub(dateKey, eventData) {
             try {
-                const response = await fetch('TimeItemData.json?t=' + Date.now());
-                if (response.ok) {
-                    const data = await response.json();
-                    events = data;
-                } else {
-                    events = {};
+                showSyncStatus('⏳ Saving to GitHub...', '');
+                
+                // Add event to local data
+                if (!events[dateKey]) {
+                    events[dateKey] = [];
                 }
-            } catch (error) {
-                console.error('Error loading TimeItemData.json:', error);
-                events = {};
-            }
-            renderCalendar();
-        }
+                events[dateKey].push(eventData);
 
-        // Save data - sync to GitHub if configured
-        async function saveData() {
-            if (githubConfig.token && githubConfig.owner && githubConfig.repo) {
-                await syncToGitHub();
-            }
-        }
-
-        // Sync data to GitHub repository
-        async function syncToGitHub() {
-            try {
-                const { token, owner, repo } = githubConfig;
-                const path = 'GithubCalendarApp/TimeItemData.json';
-                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+                // Prepare GitHub API request
+                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`;
                 
                 // Get current file SHA
                 const getResponse = await fetch(url, {
                     headers: {
-                        'Authorization': `token ${token}`,
+                        'Authorization': `token ${GITHUB_TOKEN}`,
                         'Accept': 'application/vnd.github.v3+json'
                     }
                 });
@@ -376,52 +329,131 @@
                     sha = fileData.sha;
                 }
                 
-                // Update file
+                // Update file on GitHub
                 const content = btoa(JSON.stringify(events, null, 2));
                 const updateResponse = await fetch(url, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `token ${token}`,
+                        'Authorization': `token ${GITHUB_TOKEN}`,
                         'Accept': 'application/vnd.github.v3+json',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        message: 'Update calendar events',
+                        message: `Add event: ${eventData.name} on ${dateKey}`,
                         content: content,
                         sha: sha
                     })
                 });
                 
                 if (updateResponse.ok) {
-                    showSyncStatus('✓ Synced to GitHub', 'success');
+                    showSyncStatus('✓ Saved to GitHub', 'success');
+                    return true;
                 } else {
-                    showSyncStatus('⚠ Sync failed', 'error');
+                    const error = await updateResponse.text();
+                    console.error('GitHub error:', error);
+                    showSyncStatus('⚠ Save failed', 'error');
+                    return false;
                 }
             } catch (error) {
-                showSyncStatus('⚠ Sync error', 'error');
-                console.error('GitHub sync error:', error);
+                console.error('Error:', error);
+                showSyncStatus('⚠ Error saving', 'error');
+                return false;
             }
         }
 
+        // ============================================
+        // DELETE EVENT FROM GITHUB
+        // ============================================
+        async function deleteEventFromGitHub(dateKey, index) {
+            try {
+                showSyncStatus('⏳ Deleting from GitHub...', '');
+                
+                // Remove event from local data
+                events[dateKey].splice(index, 1);
+                if (events[dateKey].length === 0) {
+                    delete events[dateKey];
+                }
+
+                // Update GitHub
+                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`;
+                
+                const getResponse = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (getResponse.ok) {
+                    const fileData = await getResponse.json();
+                    const sha = fileData.sha;
+                    
+                    const content = btoa(JSON.stringify(events, null, 2));
+                    const updateResponse = await fetch(url, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: `Delete event from ${dateKey}`,
+                            content: content,
+                            sha: sha
+                        })
+                    });
+                    
+                    if (updateResponse.ok) {
+                        showSyncStatus('✓ Deleted from GitHub', 'success');
+                        return true;
+                    }
+                }
+                
+                showSyncStatus('⚠ Delete failed', 'error');
+                return false;
+            } catch (error) {
+                console.error('Error:', error);
+                showSyncStatus('⚠ Error deleting', 'error');
+                return false;
+            }
+        }
+
+        // ============================================
+        // UI HELPER FUNCTIONS
+        // ============================================
         function showSyncStatus(message, type) {
             syncStatus.textContent = message;
             syncStatus.className = `sync-status ${type}`;
-            setTimeout(() => {
-                syncStatus.textContent = '';
-                syncStatus.className = 'sync-status';
-            }, 3000);
+            if (type) {
+                setTimeout(() => {
+                    syncStatus.textContent = '';
+                    syncStatus.className = 'sync-status';
+                }, 3000);
+            }
         }
 
-        const monthNames = ["January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"];
-
-        monthYear.textContent = `${monthNames[month]} ${year}`;
-
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        async function loadData() {
+            try {
+                const response = await fetch('TimeItemData.json?t=' + Date.now());
+                if (response.ok) {
+                    events = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                events = {};
+            }
+            renderCalendar();
+        }
 
         function renderCalendar() {
             calendarEl.innerHTML = '';
+            
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+            monthYear.textContent = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
             
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             dayNames.forEach(name => {
@@ -454,12 +486,13 @@
                 }
 
                 dayEl.addEventListener('click', () => openModal(day));
-                
                 calendarEl.appendChild(dayEl);
             }
         }
 
         function openModal(day) {
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
             selectedDate = `${year}-${month + 1}-${day}`;
             modalTitle.textContent = `Events for ${monthNames[month]} ${day}, ${year}`;
             eventName.value = '';
@@ -490,14 +523,10 @@
             });
         }
 
-        function deleteEvent(index) {
-            events[selectedDate].splice(index, 1);
-            if (events[selectedDate].length === 0) {
-                delete events[selectedDate];
-            }
-            saveData();
+        async function deleteEvent(index) {
+            await deleteEventFromGitHub(selectedDate, index);
             displayEvents();
-            updateCalendar();
+            renderCalendar();
         }
 
         function updateCalendar() {
@@ -519,20 +548,24 @@
             });
         }
 
-        btnSave.addEventListener('click', () => {
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        btnSave.addEventListener('click', async () => {
             if (eventName.value.trim() && eventTime.value) {
-                if (!events[selectedDate]) {
-                    events[selectedDate] = [];
-                }
-                events[selectedDate].push({
+                const newEvent = {
                     name: eventName.value.trim(),
                     time: eventTime.value
-                });
-                saveData();
-                eventName.value = '';
-                eventTime.value = '';
-                displayEvents();
-                updateCalendar();
+                };
+                
+                const success = await addEventToGitHub(selectedDate, newEvent);
+                
+                if (success) {
+                    eventName.value = '';
+                    eventTime.value = '';
+                    displayEvents();
+                    updateCalendar();
+                }
             }
         });
 
@@ -546,45 +579,7 @@
 
         window.deleteEvent = deleteEvent;
         
-        // Settings button
-        document.getElementById('btnSettings').addEventListener('click', () => {
-            document.getElementById('githubOwner').value = githubConfig.owner || '';
-            document.getElementById('githubRepo').value = githubConfig.repo || '';
-            document.getElementById('githubToken').value = githubConfig.token || '';
-            settingsModal.classList.add('show');
-        });
-
-        // Save settings
-        document.getElementById('btnSaveSettings').addEventListener('click', () => {
-            githubConfig = {
-                owner: document.getElementById('githubOwner').value.trim(),
-                repo: document.getElementById('githubRepo').value.trim(),
-                token: document.getElementById('githubToken').value.trim()
-            };
-            
-            if (githubConfig.owner && githubConfig.repo && githubConfig.token) {
-                localStorage.setItem('githubConfig', JSON.stringify(githubConfig));
-                settingsModal.classList.remove('show');
-                showSyncStatus('✓ Settings saved', 'success');
-                syncToGitHub(); // Initial sync
-            } else {
-                alert('Please fill in all fields');
-            }
-        });
-
-        // Cancel settings
-        document.getElementById('btnCancelSettings').addEventListener('click', () => {
-            settingsModal.classList.remove('show');
-        });
-
-        // Close settings modal on background click
-        settingsModal.addEventListener('click', (e) => {
-            if (e.target === settingsModal) {
-                settingsModal.classList.remove('show');
-            }
-        });
-        
-        // Initialize: load data automatically on page load
+        // Initialize
         loadData();
     </script>
 </body>
