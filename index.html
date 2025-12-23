@@ -332,8 +332,23 @@
 
         // Auto-load data from TimeItemData.json on startup
         async function loadData() {
+            // Try to pull from GitHub first if configured
+            if (githubConfig.token && githubConfig.owner && githubConfig.repo) {
+                const pulled = await pullFromGitHub();
+                if (pulled) {
+                    renderCalendar();
+                    return;
+                }
+            }
+            
+            // Otherwise, load from local file with cache-busting
             try {
-                const response = await fetch('TimeItemData.json');
+                const response = await fetch('TimeItemData.json?' + new Date().getTime(), {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
                 if (response.ok) {
                     const data = await response.json();
                     events = data;
@@ -354,6 +369,34 @@
             if (githubConfig.token && githubConfig.owner && githubConfig.repo) {
                 await syncToGitHub();
             }
+        }
+
+        // Pull data from GitHub repository
+        async function pullFromGitHub() {
+            try {
+                const { token, owner, repo } = githubConfig;
+                const path = 'TimeItemData.json';
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const fileData = await response.json();
+                    const content = atob(fileData.content);
+                    events = JSON.parse(content);
+                    localStorage.setItem('calendarEvents', JSON.stringify(events));
+                    showSyncStatus('✓ Loaded from GitHub', 'success');
+                    return true;
+                }
+            } catch (error) {
+                console.error('GitHub pull error:', error);
+            }
+            return false;
         }
 
         // Sync data to GitHub repository
