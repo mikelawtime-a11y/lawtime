@@ -40,7 +40,14 @@
             font-size: 1.5rem;
         }
 
-        .btn-export {
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .btn-export, .btn-settings {
             background-color: #4CAF50;
             color: white;
             padding: 8px 15px;
@@ -48,7 +55,24 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 0.9rem;
-            margin-top: 10px;
+        }
+
+        .btn-settings {
+            background-color: #607D8B;
+        }
+
+        .sync-status {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .sync-status.success {
+            color: #4CAF50;
+        }
+
+        .sync-status.error {
+            color: #f44336;
         }
 
         .days {
@@ -248,7 +272,11 @@
     <div class="calendar">
         <div class="header">
             <h2 id="monthYear"></h2>
-            <button class="btn-export" id="btnExport">Download Backup</button>
+            <div class="header-buttons">
+                <button class="btn-export" id="btnExport">Download Backup</button>
+                <button class="btn-settings" id="btnSettings">⚙️ Settings</button>
+            </div>
+            <div class="sync-status" id="syncStatus"></div>
         </div>
         <div class="days" id="calendar"></div>
     </div>
@@ -266,6 +294,21 @@
         </div>
     </div>
 
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <h3>GitHub Sync Settings</h3>
+            <p style="font-size: 0.9rem; color: #666;">Configure auto-sync to GitHub repository</p>
+            <input type="text" id="githubOwner" placeholder="GitHub username (e.g., mikelawtime-a11y)" />
+            <input type="text" id="githubRepo" placeholder="Repository name (e.g., lawtime)" />
+            <input type="password" id="githubToken" placeholder="Fine-grained personal access token" />
+            <p style="font-size: 0.8rem; color: #999; margin: 10px 0;">⚠️ Token is stored in browser only. Never share it.</p>
+            <div class="modal-buttons">
+                <button class="btn-save" id="btnSaveSettings">Save & Sync</button>
+                <button class="btn-cancel" id="btnCancelSettings">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const monthYear = document.getElementById('monthYear');
         const calendarEl = document.getElementById('calendar');
@@ -276,6 +319,8 @@
         const eventList = document.getElementById('eventList');
         const btnSave = document.getElementById('btnSave');
         const btnCancel = document.getElementById('btnCancel');
+        const settingsModal = document.getElementById('settingsModal');
+        const syncStatus = document.getElementById('syncStatus');
 
         const today = new Date();
         const month = today.getMonth();
@@ -283,6 +328,7 @@
 
         let events = {};
         let selectedDate = null;
+        let githubConfig = JSON.parse(localStorage.getItem('githubConfig')) || {};
 
         // Auto-load data from TimeItemData.json on startup
         async function loadData() {
@@ -300,11 +346,71 @@
             renderCalendar();
         }
 
-        // Auto-save data to TimeItemData.json
+        // Auto-save data to localStorage and GitHub
         async function saveData() {
             localStorage.setItem('calendarEvents', JSON.stringify(events));
-            // Note: Browser security prevents writing directly to local files
-            // Data is saved to localStorage for persistence
+            
+            // Sync to GitHub if configured
+            if (githubConfig.token && githubConfig.owner && githubConfig.repo) {
+                await syncToGitHub();
+            }
+        }
+
+        // Sync data to GitHub repository
+        async function syncToGitHub() {
+            try {
+                const { token, owner, repo } = githubConfig;
+                const path = 'TimeItemData.json';
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+                
+                // Get current file SHA
+                const getResponse = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                let sha = null;
+                if (getResponse.ok) {
+                    const fileData = await getResponse.json();
+                    sha = fileData.sha;
+                }
+                
+                // Update file
+                const content = btoa(JSON.stringify(events, null, 2));
+                const updateResponse = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: 'Update calendar events',
+                        content: content,
+                        sha: sha
+                    })
+                });
+                
+                if (updateResponse.ok) {
+                    showSyncStatus('✓ Synced to GitHub', 'success');
+                } else {
+                    showSyncStatus('⚠ Sync failed', 'error');
+                }
+            } catch (error) {
+                showSyncStatus('⚠ Sync error', 'error');
+                console.error('GitHub sync error:', error);
+            }
+        }
+
+        function showSyncStatus(message, type) {
+            syncStatus.textContent = message;
+            syncStatus.className = `sync-status ${type}`;
+            setTimeout(() => {
+                syncStatus.textContent = '';
+                syncStatus.className = 'sync-status';
+            }, 3000);
         }
 
         const monthNames = ["January", "February", "March", "April", "May", "June",
@@ -451,6 +557,44 @@
             a.download = 'TimeItemData.json';
             a.click();
             URL.revokeObjectURL(url);
+        });
+
+        // Settings button
+        document.getElementById('btnSettings').addEventListener('click', () => {
+            document.getElementById('githubOwner').value = githubConfig.owner || '';
+            document.getElementById('githubRepo').value = githubConfig.repo || '';
+            document.getElementById('githubToken').value = githubConfig.token || '';
+            settingsModal.classList.add('show');
+        });
+
+        // Save settings
+        document.getElementById('btnSaveSettings').addEventListener('click', () => {
+            githubConfig = {
+                owner: document.getElementById('githubOwner').value.trim(),
+                repo: document.getElementById('githubRepo').value.trim(),
+                token: document.getElementById('githubToken').value.trim()
+            };
+            
+            if (githubConfig.owner && githubConfig.repo && githubConfig.token) {
+                localStorage.setItem('githubConfig', JSON.stringify(githubConfig));
+                settingsModal.classList.remove('show');
+                showSyncStatus('✓ Settings saved', 'success');
+                syncToGitHub(); // Initial sync
+            } else {
+                alert('Please fill in all fields');
+            }
+        });
+
+        // Cancel settings
+        document.getElementById('btnCancelSettings').addEventListener('click', () => {
+            settingsModal.classList.remove('show');
+        });
+
+        // Close settings modal on background click
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                settingsModal.classList.remove('show');
+            }
         });
         
         // Initialize: load data automatically on page load
