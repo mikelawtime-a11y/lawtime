@@ -117,14 +117,29 @@
         <button id="btnChangeToken" style="background-color: #607D8B;">Change Token</button>
 
         <div class="status" id="status" style="display: none;"></div>
+        
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+        
+        <h3 style="text-align: center; color: #333; font-size: 1.2rem;">Test Encryption</h3>
+        <input type="text" id="testInput" placeholder="Enter text to encrypt" style="margin-bottom: 10px;" />
+        <button id="btnEncrypt" style="background-color: #4CAF50;">Encrypt</button>
+        <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; min-height: 40px; word-break: break-all;">
+            <strong>Encrypted:</strong>
+            <div id="encryptedOutput" style="margin-top: 5px; color: #666;">Result will appear here...</div>
+        </div>
     </div>
 
+    <script src="encryption.js"></script>
     <script>
         const GITHUB_OWNER = 'mikelawtime-a11y';
         const GITHUB_REPO = 'lawtime';
         const GITHUB_PATH = 'TimeItemData.json';
 
-        let githubToken = localStorage.getItem('githubToken');
+        let githubToken = null;
+        const encryptedToken = localStorage.getItem('githubToken');
+        if (encryptedToken) {
+            githubToken = decryptToken(encryptedToken);
+        }
         let events = {};
 
         // Show status message
@@ -144,8 +159,9 @@
             const token = prompt('Please enter your GitHub Fine-grained Personal Access Token:');
             if (token && token.trim()) {
                 githubToken = token.trim();
-                localStorage.setItem('githubToken', githubToken);
-                showStatus('✓ Token saved successfully', 'success');
+                const encrypted = encryptToken(githubToken);
+                localStorage.setItem('githubToken', encrypted);
+                showStatus('✓ Token saved successfully (encrypted)', 'success');
                 return true;
             } else {
                 showStatus('⚠ Token is required to use this app', 'error');
@@ -283,6 +299,17 @@
         // Event listeners
         document.getElementById('btnAddItem').addEventListener('click', addTestItem);
         document.getElementById('btnChangeToken').addEventListener('click', changeToken);
+        
+        // Test encryption button
+        document.getElementById('btnEncrypt').addEventListener('click', () => {
+            const input = document.getElementById('testInput').value;
+            if (input.trim()) {
+                const encrypted = encryptToken(input);
+                document.getElementById('encryptedOutput').textContent = encrypted;
+            } else {
+                document.getElementById('encryptedOutput').textContent = 'Please enter some text first.';
+            }
+        });
 
         // Run on page load
         init();
