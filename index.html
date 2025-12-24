@@ -127,6 +127,14 @@
             <strong>Encrypted:</strong>
             <div id="encryptedOutput" style="margin-top: 5px; color: #666;">Result will appear here...</div>
         </div>
+        
+        <h3 style="text-align: center; color: #333; font-size: 1.2rem; margin-top: 30px;">Test Decryption</h3>
+        <input type="text" id="testDecryptInput" placeholder="Enter encrypted text to decrypt" style="margin-bottom: 10px;" />
+        <button id="btnDecrypt" style="background-color: #FF9800;">Decrypt</button>
+        <div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; min-height: 40px; word-break: break-all;">
+            <strong>Decrypted:</strong>
+            <div id="decryptedOutput" style="margin-top: 5px; color: #666;">Result will appear here...</div>
+        </div>
     </div>
 
     <script src="encryption.js"></script>
@@ -308,6 +316,21 @@
                 document.getElementById('encryptedOutput').textContent = encrypted;
             } else {
                 document.getElementById('encryptedOutput').textContent = 'Please enter some text first.';
+            }
+        });
+        
+        // Test decryption button
+        document.getElementById('btnDecrypt').addEventListener('click', () => {
+            const input = document.getElementById('testDecryptInput').value;
+            if (input.trim()) {
+                const decrypted = decryptToken(input);
+                if (decrypted) {
+                    document.getElementById('decryptedOutput').textContent = decrypted;
+                } else {
+                    document.getElementById('decryptedOutput').textContent = 'Decryption failed. Invalid encrypted text.';
+                }
+            } else {
+                document.getElementById('decryptedOutput').textContent = 'Please enter encrypted text first.';
             }
         });
 
