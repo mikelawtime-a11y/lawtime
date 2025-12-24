@@ -53,16 +53,26 @@ function deriveRoundKeys(baseKey, salt, rounds) {
     return keys;
 }
 
-// Generate pseudo-random salt (deterministic for consistency)
+// Generate cryptographically secure random salt
 function generateSalt() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let salt = '';
-    const timestamp = Date.now();
     
-    for (let i = 0; i < 16; i++) {
-        const randomValue = Math.sin(timestamp + i) * 10000;
-        const index = Math.floor((randomValue - Math.floor(randomValue)) * chars.length);
-        salt += chars[index];
+    // Use crypto.getRandomValues for true randomness (not timestamp-based)
+    const randomBytes = new Uint8Array(16);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(randomBytes);
+        for (let i = 0; i < 16; i++) {
+            salt += chars[randomBytes[i] % chars.length];
+        }
+    } else {
+        // Fallback to timestamp-based (less secure but works everywhere)
+        const timestamp = Date.now();
+        for (let i = 0; i < 16; i++) {
+            const randomValue = Math.sin(timestamp + i) * 10000;
+            const index = Math.floor((randomValue - Math.floor(randomValue)) * chars.length);
+            salt += chars[index];
+        }
     }
     return salt;
 }
