@@ -146,32 +146,55 @@ function encryptToken(token) {
         // Derive round keys
         const roundKeys = deriveRoundKeys(SECRET_KEY, salt, ROUNDS);
         
-        // Start with original data
-        let encrypted = token;
+        // Convert string to byte array for proper binary handling
+        let bytes = [];
+        for (let i = 0; i < token.length; i++) {
+            bytes.push(token.charCodeAt(i) & 0xFF);
+        }
         
         // Multiple encryption rounds
         for (let round = 0; round < ROUNDS; round++) {
+            const key = roundKeys[round];
+            const revKey = key.split('').reverse().join('');
+            
             // 1. XOR with round key
-            encrypted = xorWithKey(encrypted, roundKeys[round]);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] ^= key.charCodeAt(i % key.length);
+            }
             
             // 2. S-Box substitution
-            encrypted = substituteBytes(encrypted);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = SBOX[bytes[i]];
+            }
             
-            // 3. Bit rotation (different for each round)
-            encrypted = rotateBytes(encrypted, (round % 7) + 1);
+            // 3. Bit rotation
+            const shift = (round % 7) + 1;
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = ((bytes[i] << shift) | (bytes[i] >> (8 - shift))) & 0xFF;
+            }
             
-            // 4. Block mixing for diffusion
-            encrypted = mixBlocks(encrypted);
+            // 4. Block mixing (CBC-style)
+            let previous = 0;
+            for (let i = 0; i < bytes.length; i++) {
+                const temp = bytes[i];
+                bytes[i] = (bytes[i] ^ previous) & 0xFF;
+                previous = temp;
+            }
             
-            // 5. XOR with reversed key (additional layer)
-            encrypted = xorWithKey(encrypted, roundKeys[round].split('').reverse().join(''));
+            // 5. XOR with reversed key
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] ^= revKey.charCodeAt(i % revKey.length);
+            }
         }
         
-        // Prepend salt (needed for decryption)
-        const combined = salt + encrypted;
+        // Convert bytes to binary string (preserve all byte values)
+        let binaryString = salt;
+        for (let i = 0; i < bytes.length; i++) {
+            binaryString += String.fromCharCode(bytes[i]);
+        }
         
         // Base64 encode for safe storage
-        return btoa(combined);
+        return btoa(binaryString);
     } catch (e) {
         console.error('Encryption error:', e);
         return null;
@@ -186,32 +209,58 @@ function decryptToken(encryptedData) {
         
         // Extract salt (first 16 characters)
         const salt = decoded.substring(0, 16);
-        let encrypted = decoded.substring(16);
+        
+        // Convert encrypted part to byte array
+        let bytes = [];
+        for (let i = 16; i < decoded.length; i++) {
+            bytes.push(decoded.charCodeAt(i) & 0xFF);
+        }
         
         // Derive same round keys using extracted salt
         const roundKeys = deriveRoundKeys(SECRET_KEY, salt, ROUNDS);
         
         // Reverse the encryption rounds
         for (let round = ROUNDS - 1; round >= 0; round--) {
-            // Reverse operations in opposite order
+            const key = roundKeys[round];
+            const revKey = key.split('').reverse().join('');
             
             // 5. Reverse XOR with reversed key
-            encrypted = xorWithKey(encrypted, roundKeys[round].split('').reverse().join(''));
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] ^= revKey.charCodeAt(i % revKey.length);
+            }
             
-            // 4. Reverse block mixing
-            encrypted = unmixBlocks(encrypted);
+            // 4. Reverse block mixing (CBC-style)
+            let previous = 0;
+            for (let i = 0; i < bytes.length; i++) {
+                const temp = bytes[i];
+                bytes[i] = (bytes[i] ^ previous) & 0xFF;
+                previous = temp;
+            }
             
             // 3. Reverse bit rotation
-            encrypted = rotateBytes(encrypted, 8 - ((round % 7) + 1));
+            const shift = 8 - ((round % 7) + 1);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = ((bytes[i] << shift) | (bytes[i] >> (8 - shift))) & 0xFF;
+            }
             
             // 2. Inverse S-Box substitution
-            encrypted = inverseSubstituteBytes(encrypted);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = INV_SBOX[bytes[i]];
+            }
             
             // 1. Reverse XOR with round key
-            encrypted = xorWithKey(encrypted, roundKeys[round]);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] ^= key.charCodeAt(i % key.length);
+            }
         }
         
-        return encrypted;
+        // Convert byte array back to string
+        let result = '';
+        for (let i = 0; i < bytes.length; i++) {
+            result += String.fromCharCode(bytes[i]);
+        }
+        
+        return result;
     } catch (e) {
         console.error('Decryption error:', e);
         return null;
