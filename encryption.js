@@ -232,9 +232,10 @@ function decryptToken(encryptedData) {
             // 4. Reverse block mixing (CBC-style)
             let previous = 0;
             for (let i = 0; i < bytes.length; i++) {
-                const temp = bytes[i];
-                bytes[i] = (bytes[i] ^ previous) & 0xFF;
-                previous = temp;
+                const encrypted = bytes[i];
+                const decrypted = (encrypted ^ previous) & 0xFF;
+                bytes[i] = decrypted;
+                previous = decrypted; // Use DECRYPTED value for next iteration
             }
             
             // 3. Reverse bit rotation
