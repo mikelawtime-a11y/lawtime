@@ -105,7 +105,7 @@ function rotateBytes(data, shift) {
     return result;
 }
 
-// Block mixing (diffusion)
+// Block mixing (diffusion) - Only uses previous for reversibility
 function mixBlocks(data) {
     if (data.length < 2) return data;
     
@@ -114,10 +114,9 @@ function mixBlocks(data) {
     
     for (let i = 0; i < data.length; i++) {
         const current = data.charCodeAt(i);
-        const next = data.charCodeAt((i + 1) % data.length);
-        const mixed = (current ^ previous ^ next) & 0xFF;
+        const mixed = (current ^ previous) & 0xFF;
         result += String.fromCharCode(mixed);
-        previous = current;
+        previous = mixed; // Use mixed value as previous for next iteration
     }
     return result;
 }
@@ -126,17 +125,16 @@ function mixBlocks(data) {
 function unmixBlocks(data) {
     if (data.length < 2) return data;
     
-    let result = new Array(data.length);
+    let result = '';
     let previous = 0;
     
     for (let i = 0; i < data.length; i++) {
         const mixed = data.charCodeAt(i);
-        const next = data.charCodeAt((i + 1) % data.length);
-        const current = (mixed ^ previous ^ next) & 0xFF;
-        result[i] = String.fromCharCode(current);
-        previous = current;
+        const current = (mixed ^ previous) & 0xFF;
+        result += String.fromCharCode(current);
+        previous = mixed; // Use mixed value as previous for next iteration
     }
-    return result.join('');
+    return result;
 }
 
 // Main encryption function
