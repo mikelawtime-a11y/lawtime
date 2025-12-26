@@ -51,11 +51,8 @@ async function encryptToken(token, masterPassword) {
         const salt = crypto.getRandomValues(new Uint8Array(CRYPTO_CONFIG.saltLength));
         const iv = crypto.getRandomValues(new Uint8Array(CRYPTO_CONFIG.ivLength));
         
-        // Use master password for encryption
-        const password = masterPassword;
-        
-        // Derive encryption key
-        const key = await deriveKey(password, salt);
+        // Derive encryption key from master password
+        const key = await deriveKey(masterPassword, salt);
         
         // Add integrity check - include a hash of the token
         const tokenHash = await crypto.subtle.digest('SHA-256', encoder.encode(token));
@@ -102,11 +99,8 @@ async function decryptToken(encryptedData, masterPassword) {
         const iv = data.slice(CRYPTO_CONFIG.saltLength, CRYPTO_CONFIG.saltLength + CRYPTO_CONFIG.ivLength);
         const encrypted = data.slice(CRYPTO_CONFIG.saltLength + CRYPTO_CONFIG.ivLength);
         
-        // Use master password for decryption
-        const password = masterPassword;
-        
-        // Derive the same key
-        const key = await deriveKey(password, salt);
+        // Derive the same key from master password
+        const key = await deriveKey(masterPassword, salt);
         
         // Decrypt the data
         const decryptedData = await crypto.subtle.decrypt(
