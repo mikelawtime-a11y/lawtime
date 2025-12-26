@@ -139,11 +139,7 @@ async function decryptToken(encryptedData, masterPassword) {
     }
 }
 
-// Securely clear sensitive data from memory
-function clearSensitiveData(data) {
-    if (typeof data === 'string') {
-        // Overwrite string in place (best effort in JavaScript)
-        data = '\0'.repeat(data.length);
-    }
-    return null;
-}
+// NOTE: JavaScript strings are immutable and cannot be truly cleared from memory.
+// The garbage collector will eventually reclaim the memory, but there's no way to
+// force immediate clearing. This is a known limitation of JavaScript security.
+// Best practice: minimize the lifetime of sensitive data in memory.
