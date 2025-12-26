@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.github.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
     <title>Simple GitHub Writer</title>
     <link rel="icon" href="data:,">
     <style>
@@ -139,16 +140,65 @@
 
     <script src="encryption.js"></script>
     <script>
+        // SECURITY: Enforce HTTPS in production
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            location.replace(`https:${location.href.substring(location.protocol.length)}`);
+        }
+
         const GITHUB_OWNER = 'mikelawtime-a11y';
         const GITHUB_REPO = 'lawtime';
         const GITHUB_PATH = 'TimeItemData.json';
+        const TOKEN_EXPIRY_DAYS = 7; // Token expires after 7 days (change to 30 for a month)
 
         let githubToken = null;
-        const encryptedToken = localStorage.getItem('githubToken');
-        if (encryptedToken) {
-            githubToken = decryptToken(encryptedToken);
-        }
+        let masterPassword = null; // Master password for this session (not stored)
         let events = {};
+        
+        // Prompt for master password
+        function promptForMasterPassword() {
+            const password = prompt('Enter your master password to unlock:');
+            if (password && password.trim()) {
+                return password.trim();
+            }
+            return null;
+        }
+        
+        // Initialize and load token on startup
+        async function loadStoredToken() {
+            const tokenData = localStorage.getItem('githubToken');
+            if (tokenData) {
+                try {
+                    const parsed = JSON.parse(tokenData);
+                    const now = Date.now();
+                    
+                    // Check if token is expired
+                    if (parsed.expiry && now < parsed.expiry) {
+                        // Prompt for master password to decrypt
+                        if (!masterPassword) {
+                            masterPassword = promptForMasterPassword();
+                            if (!masterPassword) {
+                                showStatus('⚠ Master password required', 'error');
+                                return;
+                            }
+                        }
+                        
+                        githubToken = await decryptToken(parsed.token, masterPassword);
+                        if (!githubToken) {
+                            // Decryption failed - wrong password or corrupted data
+                            showStatus('⚠ Incorrect password or corrupted data', 'error');
+                            localStorage.removeItem('githubToken');
+                            masterPassword = null;
+                        }
+                    } else {
+                        // Token expired, remove it
+                        localStorage.removeItem('githubToken');
+                    }
+                } catch (e) {
+                    // Invalid format, remove it
+                    localStorage.removeItem('githubToken');
+                }
+            }
+        }
 
         // Show status message
         function showStatus(message, type) {
@@ -163,13 +213,44 @@
         }
 
         // Prompt for token on first load
-        function promptForToken() {
+        async function promptForToken() {
             const token = prompt('Please enter your GitHub Fine-grained Personal Access Token:');
             if (token && token.trim()) {
                 githubToken = token.trim();
-                const encrypted = encryptToken(githubToken);
-                localStorage.setItem('githubToken', encrypted);
-                showStatus('✓ Token saved successfully (encrypted)', 'success');
+                
+                // Prompt for master password if not already set
+                if (!masterPassword) {
+                    masterPassword = prompt('Create a master password to encrypt your token:');
+                    if (!masterPassword || masterPassword.length < 8) {
+                        showStatus('⚠ Password must be at least 8 characters', 'error');
+                        return false;
+                    }
+                    
+                    // Confirm password
+                    const confirmPassword = prompt('Confirm your master password:');
+                    if (confirmPassword !== masterPassword) {
+                        showStatus('⚠ Passwords do not match', 'error');
+                        masterPassword = null;
+                        return false;
+                    }
+                }
+                
+                const encrypted = await encryptToken(githubToken, masterPassword);
+                
+                if (!encrypted) {
+                    showStatus('⚠ Encryption failed', 'error');
+                    return false;
+                }
+                
+                // Store token with expiration timestamp
+                const expiryDate = Date.now() + (TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+                const tokenData = JSON.stringify({
+                    token: encrypted,
+                    expiry: expiryDate
+                });
+                localStorage.setItem('githubToken', tokenData);
+                
+                showStatus(`✓ Token saved securely (expires in ${TOKEN_EXPIRY_DAYS} days)`, 'success');
                 return true;
             } else {
                 showStatus('⚠ Token is required to use this app', 'error');
@@ -289,45 +370,70 @@
         }
 
         // Change token
-        function changeToken() {
-            promptForToken();
+        async function changeToken() {
+            await promptForToken();
         }
-
+        
         // Initialize
         async function init() {
+            if (masterPassword) {
+                clearSensitiveData(masterPassword);
+                masterPassword = null;
+            }
+            // Load stored token first
+            await loadStoredToken();
+            
             if (!githubToken) {
-                const hasToken = promptForToken();
+                const hasToken = await promptForToken();
                 if (!hasToken) return;
             }
             
             // Load existing data
             await pullFromGitHub();
         }
+        
+        // Clear sensitive data when page unloads
+        window.addEventListener('beforeunload', () => {
+            if (githubToken) {
+                clearSensitiveData(githubToken);
+                githubToken = null;
+            }
+        });
 
         // Event listeners
         document.getElementById('btnAddItem').addEventListener('click', addTestItem);
         document.getElementById('btnChangeToken').addEventListener('click', changeToken);
         
         // Test encryption button
-        document.getElementById('btnEncrypt').addEventListener('click', () => {
+        document.getElementById('btnEncrypt').addEventListener('click', async () => {
             const input = document.getElementById('testInput').value;
             if (input.trim()) {
-                const encrypted = encryptToken(input);
-                document.getElementById('encryptedOutput').textContent = encrypted;
+                const testPassword = prompt('Enter password for test encryption:');
+                if (testPassword) {
+                    const encrypted = await encryptToken(input, testPassword);
+                    document.getElementById('encryptedOutput').textContent = encrypted || 'Encryption failed';
+                } else {
+                    document.getElementById('encryptedOutput').textContent = 'Password required for encryption';
+                }
             } else {
                 document.getElementById('encryptedOutput').textContent = 'Please enter some text first.';
             }
         });
         
         // Test decryption button
-        document.getElementById('btnDecrypt').addEventListener('click', () => {
+        document.getElementById('btnDecrypt').addEventListener('click', async () => {
             const input = document.getElementById('testDecryptInput').value;
             if (input.trim()) {
-                const decrypted = decryptToken(input);
-                if (decrypted) {
-                    document.getElementById('decryptedOutput').textContent = decrypted;
+                const testPassword = prompt('Enter password for test decryption:');
+                if (testPassword) {
+                    const decrypted = await decryptToken(input, testPassword);
+                    if (decrypted) {
+                        document.getElementById('decryptedOutput').textContent = decrypted;
+                    } else {
+                        document.getElementById('decryptedOutput').textContent = 'Decryption failed. Wrong password or tampered data.';
+                    }
                 } else {
-                    document.getElementById('decryptedOutput').textContent = 'Decryption failed. Invalid encrypted text.';
+                    document.getElementById('decryptedOutput').textContent = 'Password required for decryption';
                 }
             } else {
                 document.getElementById('decryptedOutput').textContent = 'Please enter encrypted text first.';
