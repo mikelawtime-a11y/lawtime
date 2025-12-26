@@ -113,6 +113,7 @@
 
     <script src="encryption.js"></script>
     <script>
+        debugger;
         // SECURITY: Enforce HTTPS in production
         if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
             location.replace(`https:${location.href.substring(location.protocol.length)}`);
@@ -130,6 +131,7 @@
         // Prompt for master password
         function promptForMasterPassword() {
             const password = prompt('Enter your master password to unlock:');
+            debugger;
             if (password && password.trim()) {
                 return password.trim();
             }
@@ -188,6 +190,7 @@
         // Prompt for token on first load
         async function promptForToken() {
             const token = prompt('Please enter your GitHub Fine-grained Personal Access Token:');
+            debugger;
             if (token && token.trim()) {
                 githubToken = token.trim();
                 
@@ -349,6 +352,7 @@
         
         // Initialize
         async function init() {
+            debugger;
             // Load stored token first
             await loadStoredToken();
             
@@ -378,7 +382,9 @@
         document.getElementById('btnChangeToken').addEventListener('click', changeToken);
 
         // Run on page load
+        debugger;
         init();
+        debugger;
     </script>
 </body>
 </html>
