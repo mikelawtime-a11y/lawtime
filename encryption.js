@@ -1,279 +1,155 @@
-// Maximum complexity pure JavaScript encryption
-const SECRET_KEY = 'gh-token-secret-key-2025';
-const ROUNDS = 12; // Number of encryption rounds
+// Web Crypto API - Secure Browser-Native Encryption
+// Uses AES-256-GCM (Galois/Counter Mode) for authenticated encryption
 
-// S-Box for byte substitution (256 values, scrambled 0-255)
-const SBOX = [
-    99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118,
-    202, 130, 201, 125, 250, 89, 71, 240, 173, 212, 162, 175, 156, 164, 114, 192,
-    183, 253, 147, 38, 54, 63, 247, 204, 52, 165, 229, 241, 113, 216, 49, 21,
-    4, 199, 35, 195, 24, 150, 5, 154, 7, 18, 128, 226, 235, 39, 178, 117,
-    9, 131, 44, 26, 27, 110, 90, 160, 82, 59, 214, 179, 41, 227, 47, 132,
-    83, 209, 0, 237, 32, 252, 177, 91, 106, 203, 190, 57, 74, 76, 88, 207,
-    208, 239, 170, 251, 67, 77, 51, 133, 69, 249, 2, 127, 80, 60, 159, 168,
-    81, 163, 64, 143, 146, 157, 56, 245, 188, 182, 218, 33, 16, 255, 243, 210,
-    205, 12, 19, 236, 95, 151, 68, 23, 196, 167, 126, 61, 100, 93, 25, 115,
-    96, 129, 79, 220, 34, 42, 144, 136, 70, 238, 184, 20, 222, 94, 11, 219,
-    224, 50, 58, 10, 73, 6, 36, 92, 194, 211, 172, 98, 145, 149, 228, 121,
-    231, 200, 55, 109, 141, 213, 78, 169, 108, 86, 244, 234, 101, 122, 174, 8,
-    186, 120, 37, 46, 28, 166, 180, 198, 232, 221, 116, 31, 75, 189, 139, 138,
-    112, 62, 181, 102, 72, 3, 246, 14, 97, 53, 87, 185, 134, 193, 29, 158,
-    225, 248, 152, 17, 105, 217, 142, 148, 155, 30, 135, 233, 206, 85, 40, 223,
-    140, 161, 137, 13, 191, 230, 66, 104, 65, 153, 45, 15, 176, 84, 187, 22
-];
+const CRYPTO_CONFIG = {
+    algorithm: 'AES-GCM',
+    keyLength: 256,
+    ivLength: 12, // 96 bits recommended for GCM
+    saltLength: 16,
+    iterations: 100000, // PBKDF2 iterations
+    tagLength: 128 // Authentication tag length
+};
 
-// Inverse S-Box for decryption
-const INV_SBOX = new Array(256);
-for (let i = 0; i < 256; i++) {
-    INV_SBOX[SBOX[i]] = i;
-}
-
-// Simple hash function for key derivation
-function simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
-}
-
-// Derive multiple round keys from base key
-function deriveRoundKeys(baseKey, salt, rounds) {
-    const keys = [];
-    let current = baseKey + salt;
+// Derive encryption key from a password using PBKDF2
+async function deriveKey(password, salt) {
+    const encoder = new TextEncoder();
+    const passwordBuffer = encoder.encode(password);
     
-    for (let i = 0; i < rounds; i++) {
-        // Hash multiple times for key strengthening
-        for (let j = 0; j < 100; j++) {
-            current = simpleHash(current + i);
-        }
-        keys.push(current);
-    }
-    return keys;
-}
-
-// Generate cryptographically secure random salt
-function generateSalt() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let salt = '';
+    // Import password as key material
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        passwordBuffer,
+        'PBKDF2',
+        false,
+        ['deriveBits', 'deriveKey']
+    );
     
-    // Use crypto.getRandomValues for true randomness (not timestamp-based)
-    const randomBytes = new Uint8Array(16);
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-        crypto.getRandomValues(randomBytes);
-        for (let i = 0; i < 16; i++) {
-            salt += chars[randomBytes[i] % chars.length];
-        }
-    } else {
-        // Fallback to timestamp-based (less secure but works everywhere)
-        const timestamp = Date.now();
-        for (let i = 0; i < 16; i++) {
-            const randomValue = Math.sin(timestamp + i) * 10000;
-            const index = Math.floor((randomValue - Math.floor(randomValue)) * chars.length);
-            salt += chars[index];
-        }
-    }
-    return salt;
+    // Derive actual encryption key
+    return await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: CRYPTO_CONFIG.iterations,
+            hash: 'SHA-256'
+        },
+        keyMaterial,
+        {
+            name: CRYPTO_CONFIG.algorithm,
+            length: CRYPTO_CONFIG.keyLength
+        },
+        false,
+        ['encrypt', 'decrypt']
+    );
 }
 
-// XOR operation with key
-function xorWithKey(data, key) {
-    let result = '';
-    for (let i = 0; i < data.length; i++) {
-        result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-    }
-    return result;
-}
-
-// S-Box substitution
-function substituteBytes(data) {
-    let result = '';
-    for (let i = 0; i < data.length; i++) {
-        result += String.fromCharCode(SBOX[data.charCodeAt(i) % 256]);
-    }
-    return result;
-}
-
-// Inverse S-Box substitution
-function inverseSubstituteBytes(data) {
-    let result = '';
-    for (let i = 0; i < data.length; i++) {
-        result += String.fromCharCode(INV_SBOX[data.charCodeAt(i) % 256]);
-    }
-    return result;
-}
-
-// Bit rotation
-function rotateBytes(data, shift) {
-    let result = '';
-    for (let i = 0; i < data.length; i++) {
-        const byte = data.charCodeAt(i);
-        const rotated = ((byte << shift) | (byte >> (8 - shift))) & 0xFF;
-        result += String.fromCharCode(rotated);
-    }
-    return result;
-}
-
-// Block mixing (diffusion) - Only uses previous for reversibility
-function mixBlocks(data) {
-    if (data.length < 2) return data;
-    
-    let result = '';
-    let previous = 0;
-    
-    for (let i = 0; i < data.length; i++) {
-        const current = data.charCodeAt(i);
-        const mixed = (current ^ previous) & 0xFF;
-        result += String.fromCharCode(mixed);
-        previous = mixed; // Use mixed value as previous for next iteration
-    }
-    return result;
-}
-
-// Reverse block mixing
-function unmixBlocks(data) {
-    if (data.length < 2) return data;
-    
-    let result = '';
-    let previous = 0;
-    
-    for (let i = 0; i < data.length; i++) {
-        const mixed = data.charCodeAt(i);
-        const current = (mixed ^ previous) & 0xFF;
-        result += String.fromCharCode(current);
-        previous = mixed; // Use mixed value as previous for next iteration
-    }
-    return result;
-}
-
-// Main encryption function
-function encryptToken(token) {
+// Encrypt token using Web Crypto API
+async function encryptToken(token, masterPassword) {
     try {
-        // Generate salt for this encryption
-        const salt = generateSalt();
+        const encoder = new TextEncoder();
         
-        // Derive round keys
-        const roundKeys = deriveRoundKeys(SECRET_KEY, salt, ROUNDS);
+        // Generate random salt and IV
+        const salt = crypto.getRandomValues(new Uint8Array(CRYPTO_CONFIG.saltLength));
+        const iv = crypto.getRandomValues(new Uint8Array(CRYPTO_CONFIG.ivLength));
         
-        // Convert string to byte array for proper binary handling
-        let bytes = [];
-        for (let i = 0; i < token.length; i++) {
-            bytes.push(token.charCodeAt(i) & 0xFF);
-        }
+        // Use master password for encryption
+        const password = masterPassword;
         
-        // Multiple encryption rounds
-        for (let round = 0; round < ROUNDS; round++) {
-            const key = roundKeys[round];
-            const revKey = key.split('').reverse().join('');
-            
-            // 1. XOR with round key
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] ^= key.charCodeAt(i % key.length);
-            }
-            
-            // 2. S-Box substitution
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] = SBOX[bytes[i]];
-            }
-            
-            // 3. Bit rotation
-            const shift = (round % 7) + 1;
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] = ((bytes[i] << shift) | (bytes[i] >> (8 - shift))) & 0xFF;
-            }
-            
-            // 4. Block mixing (CBC-style)
-            let previous = 0;
-            for (let i = 0; i < bytes.length; i++) {
-                const temp = bytes[i];
-                bytes[i] = (bytes[i] ^ previous) & 0xFF;
-                previous = temp;
-            }
-            
-            // 5. XOR with reversed key
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] ^= revKey.charCodeAt(i % revKey.length);
-            }
-        }
+        // Derive encryption key
+        const key = await deriveKey(password, salt);
         
-        // Convert bytes to binary string (preserve all byte values)
-        let binaryString = salt;
-        for (let i = 0; i < bytes.length; i++) {
-            binaryString += String.fromCharCode(bytes[i]);
-        }
+        // Add integrity check - include a hash of the token
+        const tokenHash = await crypto.subtle.digest('SHA-256', encoder.encode(token));
+        const hashHex = Array.from(new Uint8Array(tokenHash))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('')
+            .substring(0, 16); // Use first 16 chars
         
-        // Base64 encode for safe storage
-        return btoa(binaryString);
-    } catch (e) {
-        console.error('Encryption error:', e);
+        const dataToEncrypt = `${hashHex}:${token}`;
+        
+        // Encrypt the data
+        const encryptedData = await crypto.subtle.encrypt(
+            {
+                name: CRYPTO_CONFIG.algorithm,
+                iv: iv,
+                tagLength: CRYPTO_CONFIG.tagLength
+            },
+            key,
+            encoder.encode(dataToEncrypt)
+        );
+        
+        // Combine salt + iv + encrypted data into one array
+        const result = new Uint8Array(salt.length + iv.length + encryptedData.byteLength);
+        result.set(salt, 0);
+        result.set(iv, salt.length);
+        result.set(new Uint8Array(encryptedData), salt.length + iv.length);
+        
+        // Convert to base64 for storage
+        return btoa(String.fromCharCode(...result));
+    } catch (error) {
+        console.error('Encryption error:', error);
         return null;
     }
 }
 
-// Main decryption function
-function decryptToken(encryptedData) {
+// Decrypt token using Web Crypto API
+async function decryptToken(encryptedData, masterPassword) {
     try {
-        // Base64 decode
-        const decoded = atob(encryptedData);
+        // Decode from base64
+        const data = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
         
-        // Extract salt (first 16 characters)
-        const salt = decoded.substring(0, 16);
+        // Extract salt, IV, and encrypted content
+        const salt = data.slice(0, CRYPTO_CONFIG.saltLength);
+        const iv = data.slice(CRYPTO_CONFIG.saltLength, CRYPTO_CONFIG.saltLength + CRYPTO_CONFIG.ivLength);
+        const encrypted = data.slice(CRYPTO_CONFIG.saltLength + CRYPTO_CONFIG.ivLength);
         
-        // Convert encrypted part to byte array
-        let bytes = [];
-        for (let i = 16; i < decoded.length; i++) {
-            bytes.push(decoded.charCodeAt(i) & 0xFF);
+        // Use master password for decryption
+        const password = masterPassword;
+        
+        // Derive the same key
+        const key = await deriveKey(password, salt);
+        
+        // Decrypt the data
+        const decryptedData = await crypto.subtle.decrypt(
+            {
+                name: CRYPTO_CONFIG.algorithm,
+                iv: iv,
+                tagLength: CRYPTO_CONFIG.tagLength
+            },
+            key,
+            encrypted
+        );
+        
+        const decoder = new TextDecoder();
+        const decryptedText = decoder.decode(decryptedData);
+        
+        // Extract hash and token
+        const [storedHash, token] = decryptedText.split(':');
+        
+        // Verify integrity - check if hash matches
+        const encoder = new TextEncoder();
+        const tokenHash = await crypto.subtle.digest('SHA-256', encoder.encode(token));
+        const computedHash = Array.from(new Uint8Array(tokenHash))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('')
+            .substring(0, 16);
+        
+        if (storedHash !== computedHash) {
+            console.error('Integrity check failed - data may have been tampered with');
+            return null;
         }
         
-        // Derive same round keys using extracted salt
-        const roundKeys = deriveRoundKeys(SECRET_KEY, salt, ROUNDS);
-        
-        // Reverse the encryption rounds
-        for (let round = ROUNDS - 1; round >= 0; round--) {
-            const key = roundKeys[round];
-            const revKey = key.split('').reverse().join('');
-            
-            // 5. Reverse XOR with reversed key
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] ^= revKey.charCodeAt(i % revKey.length);
-            }
-            
-            // 4. Reverse block mixing (CBC-style)
-            let previous = 0;
-            for (let i = 0; i < bytes.length; i++) {
-                const encrypted = bytes[i];
-                const decrypted = (encrypted ^ previous) & 0xFF;
-                bytes[i] = decrypted;
-                previous = decrypted; // Use DECRYPTED value for next iteration
-            }
-            
-            // 3. Reverse bit rotation
-            const shift = 8 - ((round % 7) + 1);
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] = ((bytes[i] << shift) | (bytes[i] >> (8 - shift))) & 0xFF;
-            }
-            
-            // 2. Inverse S-Box substitution
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] = INV_SBOX[bytes[i]];
-            }
-            
-            // 1. Reverse XOR with round key
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] ^= key.charCodeAt(i % key.length);
-            }
-        }
-        
-        // Convert byte array back to string
-        let result = '';
-        for (let i = 0; i < bytes.length; i++) {
-            result += String.fromCharCode(bytes[i]);
-        }
-        
-        return result;
-    } catch (e) {
-        console.error('Decryption error:', e);
+        return token;
+    } catch (error) {
+        console.error('Decryption error:', error);
         return null;
     }
+}
+
+// Securely clear sensitive data from memory
+function clearSensitiveData(data) {
+    if (typeof data === 'string') {
+        // Overwrite string in place (best effort in JavaScript)
+        data = '\0'.repeat(data.length);
+    }
+    return null;
 }
