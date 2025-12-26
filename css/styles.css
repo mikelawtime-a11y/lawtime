@@ -144,62 +144,6 @@ h1 {
     color: #666;
 }
 
-/* Weekly Schedule Styles */
-.schedule-container {
-    margin-bottom: 25px;
-    background: var(--bg-color);
-    padding: 20px;
-    border-radius: var(--border-radius);
-    overflow-x: auto;
-}
-
-.schedule-grid {
-    display: grid;
-    grid-template-columns: 70px repeat(7, 1fr);
-    gap: 4px;
-    min-width: 600px;
-}
-
-.schedule-header {
-    text-align: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--primary-color);
-    padding: 10px 5px;
-    background: white;
-    border-radius: 6px;
-}
-
-.schedule-header.time-col {
-    background: transparent;
-}
-
-.time-slot {
-    text-align: center;
-    font-size: 0.8rem;
-    color: #666;
-    padding: 10px 5px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.schedule-cell {
-    background: white;
-    border-radius: 6px;
-    min-height: 40px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid #f0f0f0;
-}
-
-.schedule-cell:hover {
-    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-    border-color: var(--primary-color);
-    transform: scale(1.02);
-}
-
 /* Button Styles */
 button {
     width: 100%;
