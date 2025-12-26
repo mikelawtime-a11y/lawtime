@@ -33,7 +33,7 @@ body {
     border-radius: var(--border-radius);
     padding: 30px;
     box-shadow: var(--shadow);
-    max-width: 450px;
+    max-width: 900px;
     width: 100%;
     animation: fadeIn 0.3s ease-in;
 }
@@ -150,14 +150,12 @@ h1 {
     background: var(--bg-color);
     padding: 20px;
     border-radius: var(--border-radius);
-    overflow-x: auto;
 }
 
 .schedule-grid {
     display: grid;
     grid-template-columns: 70px repeat(7, 1fr);
     gap: 4px;
-    min-width: 600px;
 }
 
 .schedule-header {
