@@ -72,6 +72,12 @@
             transform: scale(0.98);
         }
 
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
         .status {
             text-align: center;
             margin-top: 15px;
@@ -133,7 +139,12 @@
             const password = prompt('Enter your master password to unlock:');
             debugger;
             if (password && password.trim()) {
-                return password.trim();
+                const trimmed = password.trim();
+                if (trimmed.length < 8) {
+                    showStatus('⚠ Password must be at least 8 characters', 'error');
+                    return null;
+                }
+                return trimmed;
             }
             return null;
         }
@@ -192,31 +203,45 @@
             const token = prompt('Please enter your GitHub Fine-grained Personal Access Token:');
             debugger;
             if (token && token.trim()) {
-                githubToken = token.trim();
+                const tokenValue = token.trim();
                 
                 // Prompt for master password if not already set
                 if (!masterPassword) {
-                    masterPassword = prompt('Create a master password to encrypt your token:');
-                    if (!masterPassword || masterPassword.length < 8) {
+                    const password = prompt('Create a master password to encrypt your token:');
+                    if (!password) {
+                        showStatus('⚠ Password is required', 'error');
+                        return false;
+                    }
+                    const trimmedPassword = password.trim();
+                    if (trimmedPassword.length < 8) {
                         showStatus('⚠ Password must be at least 8 characters', 'error');
                         return false;
                     }
                     
                     // Confirm password
                     const confirmPassword = prompt('Confirm your master password:');
-                    if (confirmPassword !== masterPassword) {
-                        showStatus('⚠ Passwords do not match', 'error');
-                        masterPassword = null;
+                    if (!confirmPassword) {
+                        showStatus('⚠ Password confirmation required', 'error');
                         return false;
                     }
+                    if (confirmPassword.trim() !== trimmedPassword) {
+                        showStatus('⚠ Passwords do not match', 'error');
+                        return false;
+                    }
+                    
+                    masterPassword = trimmedPassword;
                 }
                 
-                const encrypted = await encryptToken(githubToken, masterPassword);
+                const encrypted = await encryptToken(tokenValue, masterPassword);
                 
                 if (!encrypted) {
                     showStatus('⚠ Encryption failed', 'error');
+                    masterPassword = null;
                     return false;
                 }
+                
+                // Only set githubToken after successful encryption
+                githubToken = tokenValue;
                 
                 // Store token with expiration timestamp
                 const expiryDate = Date.now() + (TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
@@ -321,28 +346,46 @@
 
         // Add test item
         async function addTestItem() {
-            showStatus('⏳ Adding item...', 'info');
-            
-            // Pull latest data first
-            const pulled = await pullFromGitHub();
-            if (!pulled) return;
-            
-            // Add new item with current date and time
-            const now = new Date();
-            const dateKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-            const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            
-            if (!events[dateKey]) {
-                events[dateKey] = [];
+            if (!githubToken) {
+                showStatus('⚠ Please authenticate first', 'error');
+                return;
             }
             
-            events[dateKey].push({
-                name: 'Test Item ' + Date.now(),
-                time: timeString
-            });
+            const btnAdd = document.getElementById('btnAddItem');
+            const btnChange = document.getElementById('btnChangeToken');
             
-            // Sync to GitHub
-            await syncToGitHub();
+            // Disable buttons during operation
+            btnAdd.disabled = true;
+            btnChange.disabled = true;
+            
+            try {
+                showStatus('⏳ Adding item...', 'info');
+                
+                // Pull latest data first
+                const pulled = await pullFromGitHub();
+                if (!pulled) return;
+                
+                // Add new item with current date and time
+                const now = new Date();
+                const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                if (!events[dateKey]) {
+                    events[dateKey] = [];
+                }
+                
+                events[dateKey].push({
+                    name: 'Test Item ' + Date.now(),
+                    time: timeString
+                });
+                
+                // Sync to GitHub
+                await syncToGitHub();
+            } finally {
+                // Re-enable buttons
+                btnAdd.disabled = false;
+                btnChange.disabled = false;
+            }
         }
 
         // Change token
@@ -358,11 +401,16 @@
             
             if (!githubToken) {
                 const hasToken = await promptForToken();
-                if (!hasToken) return;
+                if (!hasToken) {
+                    showStatus('⚠ Cannot proceed without authentication', 'error');
+                    return;
+                }
             }
             
-            // Load existing data
-            await pullFromGitHub();
+            // Load existing data only if we have a valid token
+            if (githubToken) {
+                await pullFromGitHub();
+            }
         }
         
         // Clear sensitive data when page unloads
