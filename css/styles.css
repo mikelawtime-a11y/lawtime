@@ -134,6 +134,16 @@ h1 {
     box-shadow: 0 2px 8px rgba(33, 150, 243, 0.4);
 }
 
+.calendar-day.other-month {
+    color: #999;
+    background: #fafafa;
+}
+
+.calendar-day.other-month:hover {
+    background: #e0e0e0;
+    color: #666;
+}
+
 /* Button Styles */
 button {
     width: 100%;
