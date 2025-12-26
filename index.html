@@ -395,7 +395,26 @@
 
         // Change token
         async function changeToken() {
-            await promptForToken();
+            // Clear existing credentials to force new password creation
+            const oldToken = githubToken;
+            const oldPassword = masterPassword;
+            
+            githubToken = null;
+            masterPassword = null;
+            
+            const success = await promptForToken();
+            
+            if (!success) {
+                // Restore old credentials if user cancels
+                githubToken = oldToken;
+                masterPassword = oldPassword;
+                showStatus('⚠ Token change cancelled', 'info');
+            } else {
+                // Clear old credentials from memory
+                if (oldToken) clearSensitiveData(oldToken);
+                if (oldPassword) clearSensitiveData(oldPassword);
+                showStatus('✓ Token and password updated successfully', 'success');
+            }
         }
         
         // Initialize
