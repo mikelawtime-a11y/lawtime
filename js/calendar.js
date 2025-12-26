@@ -1,4 +1,4 @@
-// Calendar functionality - Shows 5 weeks: current week + 2 weeks before + 2 weeks after
+// Calendar functionality - Shows 4 weeks: 1 week past + current week + 2 weeks future
 
 function generateCalendar() {
     const now = new Date();
@@ -8,13 +8,13 @@ function generateCalendar() {
     const currentWeekSunday = new Date(today);
     currentWeekSunday.setDate(today.getDate() - today.getDay());
     
-    // Start from Sunday of 2 weeks before current week
+    // Start from Sunday of 1 week before current week
     const startDate = new Date(currentWeekSunday);
-    startDate.setDate(currentWeekSunday.getDate() - 14);
+    startDate.setDate(currentWeekSunday.getDate() - 7);
     
     // End at Saturday of 2 weeks after current week
     const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 34); // 35 days total (5 weeks)
+    endDate.setDate(startDate.getDate() + 27); // 28 days total (4 weeks)
     
     // Get calendar elements
     const calendarEl = document.getElementById('calendar');
@@ -46,9 +46,9 @@ function generateCalendar() {
         calendarEl.appendChild(dayHeader);
     });
     
-    // Generate exactly 5 weeks (35 days) starting from startDate
+    // Generate exactly 4 weeks (28 days) starting from startDate
     const currentDate = new Date(startDate);
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 28; i++) {
         const dayCell = document.createElement('div');
         dayCell.className = 'calendar-day';
         dayCell.textContent = currentDate.getDate();
