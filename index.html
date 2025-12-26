@@ -150,6 +150,7 @@
         }
         
         // Initialize and load token on startup
+        // Returns: { hasStoredToken: boolean, unlocked: boolean }
         async function loadStoredToken() {
             const tokenData = localStorage.getItem('githubToken');
             if (tokenData) {
@@ -163,27 +164,31 @@
                         if (!masterPassword) {
                             masterPassword = promptForMasterPassword();
                             if (!masterPassword) {
-                                showStatus('⚠ Master password required', 'error');
-                                return;
+                                showStatus('⚠ Password required to unlock stored token', 'error');
+                                return { hasStoredToken: true, unlocked: false };
                             }
                         }
                         
                         githubToken = await decryptToken(parsed.token, masterPassword);
                         if (!githubToken) {
-                            // Decryption failed - wrong password or corrupted data
-                            showStatus('⚠ Incorrect password or corrupted data', 'error');
-                            localStorage.removeItem('githubToken');
+                            // Decryption failed - wrong password
+                            showStatus('⚠ Incorrect password. Please reload and try again.', 'error');
                             masterPassword = null;
+                            // Keep token stored, allow retry
+                            return { hasStoredToken: true, unlocked: false };
                         }
+                        return { hasStoredToken: true, unlocked: true };
                     } else {
                         // Token expired, remove it
                         localStorage.removeItem('githubToken');
+                        showStatus('ℹ Stored token expired', 'info');
                     }
                 } catch (e) {
                     // Invalid format, remove it
                     localStorage.removeItem('githubToken');
                 }
             }
+            return { hasStoredToken: false, unlocked: false };
         }
 
         // Show status message
@@ -397,9 +402,16 @@
         async function init() {
             debugger;
             // Load stored token first
-            await loadStoredToken();
+            const tokenStatus = await loadStoredToken();
             
-            if (!githubToken) {
+            // If stored token exists but wasn't unlocked, don't proceed
+            if (tokenStatus.hasStoredToken && !tokenStatus.unlocked) {
+                showStatus('⚠ Please reload and enter correct password', 'error');
+                return;
+            }
+            
+            // Only prompt for new token if no stored token exists
+            if (!githubToken && !tokenStatus.hasStoredToken) {
                 const hasToken = await promptForToken();
                 if (!hasToken) {
                     showStatus('⚠ Cannot proceed without authentication', 'error');
