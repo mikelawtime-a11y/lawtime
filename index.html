@@ -220,7 +220,15 @@
 
         const GITHUB_OWNER = 'mikelawtime-a11y';
         const GITHUB_REPO = 'datarepo';
-        const GITHUB_PATH = 'TimeItemData.json';
+        
+        // Generate file path based on current year and month (e.g., 202512.json for Dec 2025)
+        function getGitHubPath() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            return `${year}${month}.json`;
+        }
+        
         const TOKEN_EXPIRY_DAYS = 7; // Token expires after 7 days (change to 30 for a month)
         const STATUS_HIDE_DELAY = 5000; // milliseconds
         const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
@@ -656,7 +664,7 @@
             resetInactivityTimer(); // Reset timer on API activity
             
             try {
-                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`;
+                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${getGitHubPath()}`;
                 
                 const response = await fetch(url, {
                     headers: {
@@ -710,7 +718,7 @@
             resetInactivityTimer(); // Reset timer on API activity
             
             try {
-                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_PATH}`;
+                const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${getGitHubPath()}`;
                 
                 // Get current file SHA
                 const getResponse = await fetch(url, {
