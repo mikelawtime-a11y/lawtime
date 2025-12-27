@@ -179,12 +179,53 @@ function showEventForm() {
         const okBtn = document.getElementById('eventFormOk');
         const cancelBtn = document.getElementById('eventFormCancel');
         
+        // Function to get number of days in a month
+        const getDaysInMonth = (year, month) => {
+            return new Date(year, month, 0).getDate();
+        };
+        
+        // Function to populate day dropdown
+        const populateDays = (year, month, selectedDay = null) => {
+            const daysInMonth = getDaysInMonth(year, month);
+            const currentDay = selectedDay || dayInput.value || String(new Date().getDate()).padStart(2, '0');
+            
+            dayInput.innerHTML = '';
+            for (let i = 1; i <= daysInMonth; i++) {
+                const option = document.createElement('option');
+                option.value = String(i).padStart(2, '0');
+                option.textContent = i;
+                dayInput.appendChild(option);
+            }
+            
+            // Set selected day, or max day if current day is invalid
+            const dayNum = parseInt(currentDay);
+            if (dayNum <= daysInMonth) {
+                dayInput.value = String(dayNum).padStart(2, '0');
+            } else {
+                dayInput.value = String(daysInMonth).padStart(2, '0');
+            }
+        };
+        
         // Set default values to current date
         const now = new Date();
         yearInput.value = now.getFullYear();
         monthInput.value = String(now.getMonth() + 1).padStart(2, '0');
-        dayInput.value = String(now.getDate()).padStart(2, '0');
+        
+        // Populate days based on current month
+        populateDays(now.getFullYear(), now.getMonth() + 1, String(now.getDate()).padStart(2, '0'));
+        
         contentInput.value = '';
+        
+        // Update days when month or year changes
+        const updateDays = () => {
+            const year = parseInt(yearInput.value);
+            const month = parseInt(monthInput.value);
+            const currentDay = dayInput.value;
+            populateDays(year, month, currentDay);
+        };
+        
+        monthInput.addEventListener('change', updateDays);
+        yearInput.addEventListener('change', updateDays);
         
         modal.style.display = 'flex';
         setTimeout(() => contentInput.focus(), 0);
@@ -193,6 +234,8 @@ function showEventForm() {
             modal.style.display = 'none';
             okBtn.onclick = null;
             cancelBtn.onclick = null;
+            monthInput.removeEventListener('change', updateDays);
+            yearInput.removeEventListener('change', updateDays);
         };
         
         okBtn.onclick = () => {
