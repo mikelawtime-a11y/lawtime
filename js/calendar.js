@@ -37,8 +37,8 @@ function generateCalendar() {
     // Clear calendar
     calendarEl.innerHTML = '';
     
-    // Add day headers
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    // Add day headers (weekdays only)
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     dayNames.forEach(day => {
         const dayHeader = document.createElement('div');
         dayHeader.className = 'calendar-day-header';
@@ -46,24 +46,30 @@ function generateCalendar() {
         calendarEl.appendChild(dayHeader);
     });
     
-    // Generate exactly 4 weeks (28 days) starting from startDate
+    // Generate exactly 4 weeks (28 days) starting from startDate, but only show weekdays
     const currentDate = new Date(startDate);
     for (let i = 0; i < 28; i++) {
-        const dayCell = document.createElement('div');
-        dayCell.className = 'calendar-day';
-        dayCell.textContent = currentDate.getDate();
+        const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
         
-        // Highlight today
-        if (currentDate.getTime() === today.getTime()) {
-            dayCell.classList.add('today');
+        // Skip weekends (Sunday = 0, Saturday = 6)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'calendar-day';
+            dayCell.textContent = currentDate.getDate();
+            
+            // Highlight today
+            if (currentDate.getTime() === today.getTime()) {
+                dayCell.classList.add('today');
+            }
+            
+            // Show different styling for different months
+            if (currentDate.getMonth() !== today.getMonth()) {
+                dayCell.classList.add('other-month');
+            }
+            
+            calendarEl.appendChild(dayCell);
         }
         
-        // Show different styling for different months
-        if (currentDate.getMonth() !== today.getMonth()) {
-            dayCell.classList.add('other-month');
-        }
-        
-        calendarEl.appendChild(dayCell);
         currentDate.setDate(currentDate.getDate() + 1);
     }
 }
