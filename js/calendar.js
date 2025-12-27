@@ -204,24 +204,39 @@ function updateCalendarWithEvents() {
     console.log('Events:', events);
     const calendarDays = document.querySelectorAll('.calendar-day');
     
-    calendarDays.forEach(dayCell => {
-        const dayNumber = parseInt(dayCell.textContent);
+    // Calculate the date range being displayed (same logic as generateCalendar)
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekOffset = AppState.getWeekOffset();
+    const referenceDate = new Date(today);
+    referenceDate.setDate(today.getDate() + (weekOffset * 7));
+    
+    const currentWeekSunday = new Date(referenceDate);
+    currentWeekSunday.setDate(referenceDate.getDate() - referenceDate.getDay());
+    
+    const startDate = new Date(currentWeekSunday);
+    startDate.setDate(currentWeekSunday.getDate() - 7);
+    
+    // Create array of visible dates (weekdays only)
+    const visibleDates = [];
+    const currentDate = new Date(startDate);
+    for (let i = 0; i < 21; i++) {
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            visibleDates.push(new Date(currentDate));
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // Match calendar cells with their actual dates
+    calendarDays.forEach((dayCell, index) => {
+        if (index >= visibleDates.length) return;
         
-        // Find which month this day belongs to
-        const isOtherMonth = dayCell.classList.contains('other-month');
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        // Reconstruct the date for this cell
-        const cellMonth = isOtherMonth ? 
-            (dayNumber > 15 ? today.getMonth() - 1 : today.getMonth() + 1) : 
-            today.getMonth();
-        const cellYear = today.getFullYear();
-        
-        const dateKey = `${cellYear}-${String(cellMonth + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+        const cellDate = visibleDates[index];
+        const dateKey = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, '0')}-${String(cellDate.getDate()).padStart(2, '0')}`;
         
         if (events[dateKey] && events[dateKey].length > 0) {
-            console.log(`  Day ${dayNumber} (${dateKey}) has ${events[dateKey].length} events:`, events[dateKey]);
+            console.log(`  Day ${cellDate.getDate()} (${dateKey}) has ${events[dateKey].length} events:`, events[dateKey]);
             
             // Add event count badge
             const badge = document.createElement('div');
@@ -245,7 +260,7 @@ function updateCalendarWithEvents() {
             dayCell.style.position = 'relative';
             dayCell.appendChild(badge);
         } else {
-            console.log(`  Day ${dayNumber} (${dateKey}) has no events`);
+            console.log(`  Day ${cellDate.getDate()} (${dateKey}) has no events`);
         }
     });
     console.log('=== updateCalendarWithEvents complete ===');
