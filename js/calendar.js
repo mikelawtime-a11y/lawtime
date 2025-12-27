@@ -2,7 +2,9 @@
 
 function generateCalendar() {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // TESTING: Hardcoded to Friday, December 26, 2025
+    const today = new Date(2025, 11, 26); // Month is 0-indexed, so 11 = December
+    // const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // Find the Sunday of the current week
     const currentWeekSunday = new Date(today);
