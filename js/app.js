@@ -124,9 +124,24 @@ function attachScheduleCellListeners() {
             const year = cellDate.getFullYear();
             const month = String(cellDate.getMonth() + 1).padStart(2, '0');
             const day = String(cellDate.getDate()).padStart(2, '0');
+            const dateKey = `${year}-${month}-${day}`;
             
-            // Show form with pre-filled date and time
-            await addEventToCell(year, month, day, time);
+            // Check if this cell has existing events
+            const events = AppState.getEvents();
+            const existingEvents = events[dateKey]?.filter(evt => evt.time === time) || [];
+            
+            if (existingEvents.length > 0) {
+                // Show choice modal: Add New or Select Event
+                const result = await showCellActionModal(dateKey, time, existingEvents);
+                if (result.action === 'addNew') {
+                    await addEventToCell(year, month, day, time);
+                }
+                // If 'select', the modal already handled showing event options
+                // If 'cancel', do nothing
+            } else {
+                // No events, directly show add form
+                await addEventToCell(year, month, day, time);
+            }
         });
     });
 }

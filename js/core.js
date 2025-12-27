@@ -258,6 +258,91 @@ function showModal(title, message, placeholder = '', isPassword = false) {
     });
 }
 
+// Show cell action modal (Add New or Select Event)
+function showCellActionModal(dateKey, time, existingEvents) {
+    resetInactivityTimer();
+    return new Promise((resolve) => {
+        const modal = document.getElementById('eventOptionsModal');
+        const modalTitle = document.getElementById('eventOptionsTitle');
+        const modalMessage = document.getElementById('eventOptionsMessage');
+        const buttonsContainer = modal.querySelector('.modal-buttons');
+        
+        modalTitle.textContent = 'Choose Action';
+        modalMessage.textContent = `${time} - ${existingEvents.length} event(s) found`;
+        modal.style.display = 'flex';
+        
+        // Clear existing buttons
+        buttonsContainer.innerHTML = '';
+        
+        // Create "Add New Event" button
+        const addNewBtn = document.createElement('button');
+        addNewBtn.textContent = '+ Add New Event';
+        addNewBtn.className = 'modal-btn-primary';
+        addNewBtn.style.backgroundColor = '#4CAF50';
+        addNewBtn.style.marginBottom = '10px';
+        addNewBtn.style.width = '100%';
+        buttonsContainer.appendChild(addNewBtn);
+        
+        // Create list of existing events
+        existingEvents.forEach((event, index) => {
+            const eventBtn = document.createElement('button');
+            eventBtn.textContent = `${event.time} - ${event.name}`;
+            eventBtn.className = 'modal-btn-secondary';
+            eventBtn.style.marginBottom = '5px';
+            eventBtn.style.width = '100%';
+            eventBtn.style.textAlign = 'left';
+            eventBtn.style.padding = '12px';
+            buttonsContainer.appendChild(eventBtn);
+            
+            eventBtn.onclick = async () => {
+                cleanup();
+                await showEventOptions(dateKey, event.id, event);
+                resolve({ action: 'select', index });
+            };
+        });
+        
+        // Create Cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.className = 'modal-btn-secondary';
+        cancelBtn.style.marginTop = '10px';
+        cancelBtn.style.width = '100%';
+        buttonsContainer.appendChild(cancelBtn);
+        
+        const cleanup = () => {
+            modal.style.display = 'none';
+            buttonsContainer.innerHTML = `
+                <button id="eventEditBtn" class="modal-btn-primary">Edit</button>
+                <button id="eventDeleteBtn" class="modal-btn-delete">Delete</button>
+                <button id="eventCancelBtn" class="modal-btn-secondary">Cancel</button>
+            `;
+        };
+        
+        addNewBtn.onclick = () => {
+            cleanup();
+            resolve({ action: 'addNew' });
+        };
+        
+        cancelBtn.onclick = () => {
+            cleanup();
+            resolve({ action: 'cancel' });
+        };
+        
+        // ESC key to cancel
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.removeEventListener('keydown', handleEscape);
+                cleanup();
+                resolve({ action: 'cancel' });
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Focus first button
+        setTimeout(() => addNewBtn.focus(), 0);
+    });
+}
+
 // Show event options dialog (Edit/Delete/Cancel)
 function showEventOptions(dateKey, eventIdOrIndex, event) {
     resetInactivityTimer();
