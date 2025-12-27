@@ -476,6 +476,36 @@ button:disabled {
     background-color: #e0e0e0;
 }
 
+.modal-btn-delete {
+    background: var(--error-color);
+    color: white;
+}
+
+.modal-btn-delete:hover {
+    background: #d32f2f;
+}
+
+/* Event item styles */
+.event-item {
+    cursor: pointer;
+    padding: 4px 6px;
+    margin-bottom: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    transition: all 0.2s ease;
+    word-wrap: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.event-item:hover {
+    transform: translateX(2px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
     body {

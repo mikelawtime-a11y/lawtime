@@ -147,8 +147,8 @@ function populateWeeklySchedule() {
             // Group events by time slot
             const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
             
-            events[dateKey].forEach((event, idx) => {
-                console.log(`    Event ${idx}: ${event.time} - ${event.name}`);
+            events[dateKey].forEach((event, eventIndex) => {
+                console.log(`    Event ${eventIndex}: ${event.time} - ${event.name}`);
                 const eventHour = parseInt(event.time.split(':')[0]);
                 const eventMinute = parseInt(event.time.split(':')[1]);
                 
@@ -171,18 +171,26 @@ function populateWeeklySchedule() {
                     console.log(`      Cell index: ${cellIndex}`);
                     
                     if (cell) {
+                        // Create clickable event item div
                         const eventDiv = document.createElement('div');
+                        eventDiv.className = 'event-item';
                         eventDiv.textContent = event.name;
-                        eventDiv.style.marginBottom = '2px';
-                        eventDiv.style.whiteSpace = 'normal';
-                        eventDiv.style.wordBreak = 'break-word';
-                        eventDiv.style.backgroundColor = '#e3f2fd';
-                        eventDiv.style.padding = '2px 4px';
-                        eventDiv.style.borderRadius = '3px';
-                        eventDiv.style.borderLeft = '3px solid #2196F3';
-                        eventDiv.style.fontSize = '0.7rem';
+                        eventDiv.title = `${event.time} - ${event.name}\nClick to edit or delete`;
+                        
+                        // Store event metadata
+                        eventDiv.dataset.dateKey = dateKey;
+                        eventDiv.dataset.eventIndex = eventIndex;
+                        eventDiv.dataset.eventName = event.name;
+                        eventDiv.dataset.eventTime = event.time;
+                        
+                        // Add click handler to open options
+                        eventDiv.addEventListener('click', async (e) => {
+                            e.stopPropagation(); // Prevent cell click
+                            await showEventOptions(dateKey, eventIndex, event);
+                        });
+                        
                         cell.appendChild(eventDiv);
-                        console.log(`      ✓ Added event to cell`);
+                        console.log(`      ✓ Added clickable event to cell`);
                     } else {
                         console.log(`      ✗ Cell not found`);
                     }

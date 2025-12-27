@@ -244,7 +244,7 @@ async function syncToGitHub() {
 }
 
 // Show event form modal
-function showEventForm(prefillYear = null, prefillMonth = null, prefillDay = null, prefillTime = null) {
+function showEventForm(prefillYear = null, prefillMonth = null, prefillDay = null, prefillTime = null, prefillContent = '') {
     return new Promise((resolve) => {
         const modal = document.getElementById('eventFormModal');
         const yearInput = document.getElementById('eventYear');
@@ -298,7 +298,8 @@ function showEventForm(prefillYear = null, prefillMonth = null, prefillDay = nul
             timeSelect.value = prefillTime;
         }
         
-        contentInput.value = '';
+        // Set content if prefilled (for editing)
+        contentInput.value = prefillContent || '';
         
         // Update days when month or year changes
         const updateDays = () => {

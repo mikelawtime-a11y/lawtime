@@ -229,3 +229,57 @@ function showModal(title, message, placeholder = '', isPassword = false) {
         document.addEventListener('keydown', handleTabKey);
     });
 }
+
+// Show event options dialog (Edit/Delete/Cancel)
+function showEventOptions(dateKey, eventIndex, event) {
+    resetInactivityTimer();
+    return new Promise((resolve) => {
+        const modal = document.getElementById('eventOptionsModal');
+        const modalTitle = document.getElementById('eventOptionsTitle');
+        const modalMessage = document.getElementById('eventOptionsMessage');
+        const editBtn = document.getElementById('eventEditBtn');
+        const deleteBtn = document.getElementById('eventDeleteBtn');
+        const cancelBtn = document.getElementById('eventCancelBtn');
+        
+        modalTitle.textContent = 'Event Options';
+        modalMessage.textContent = `${event.time} - ${event.name}`;
+        modal.style.display = 'flex';
+        
+        // Focus edit button
+        setTimeout(() => editBtn.focus(), 0);
+        
+        const cleanup = () => {
+            modal.style.display = 'none';
+            editBtn.onclick = null;
+            deleteBtn.onclick = null;
+            cancelBtn.onclick = null;
+        };
+        
+        editBtn.onclick = async () => {
+            cleanup();
+            resolve('edit');
+            await updateEvent(dateKey, eventIndex, event);
+        };
+        
+        deleteBtn.onclick = async () => {
+            cleanup();
+            resolve('delete');
+            await deleteEvent(dateKey, eventIndex, event);
+        };
+        
+        cancelBtn.onclick = () => {
+            cleanup();
+            resolve('cancel');
+        };
+        
+        // ESC key to cancel
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.removeEventListener('keydown', handleEscape);
+                cleanup();
+                resolve('cancel');
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+    });
+}

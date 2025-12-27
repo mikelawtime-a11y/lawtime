@@ -211,6 +211,150 @@ function navigateToCurrentWeek() {
     attachScheduleCellListeners();
 }
 
+// Update an existing event
+async function updateEvent(dateKey, eventIndex, oldEvent) {
+    resetInactivityTimer();
+    
+    // Parse the date key to get year, month, day
+    const [year, month, day] = dateKey.split('-');
+    
+    // Show the event form with pre-filled data including the event name
+    const eventData = await showEventForm(
+        parseInt(year),
+        month,
+        parseInt(day),
+        oldEvent.time,
+        oldEvent.name
+    );
+    
+    if (!eventData) {
+        return; // User cancelled
+    }
+    
+    const btnAdd = document.getElementById('btnAddItem');
+    const btnChange = document.getElementById('btnChangeToken');
+    
+    btnAdd.disabled = true;
+    btnChange.disabled = true;
+    
+    try {
+        showSplash();
+        showStatus('⏳ Updating event...', 'info');
+        
+        // Pull latest data
+        const pulled = await pullFromGitHub();
+        if (!pulled) {
+            showStatus('⚠ Failed to load latest data', 'error', true);
+            return;
+        }
+        
+        const events = AppState.getEvents();
+        const newDateKey = `${eventData.year}-${eventData.month}-${eventData.day}`;
+        
+        // Remove from old date
+        if (events[dateKey] && events[dateKey][eventIndex]) {
+            events[dateKey].splice(eventIndex, 1);
+            
+            // If no more events on this date, remove the date key
+            if (events[dateKey].length === 0) {
+                delete events[dateKey];
+            }
+        }
+        
+        // Add to new date
+        if (!events[newDateKey]) {
+            events[newDateKey] = [];
+        }
+        events[newDateKey].push({
+            name: eventData.content,
+            time: eventData.time
+        });
+        
+        // Sync to GitHub
+        const synced = await syncToGitHub();
+        
+        if (!synced) {
+            showStatus('⚠ Failed to update event', 'error', true);
+        } else {
+            showStatus('✓ Event updated successfully', 'success');
+            
+            // Refresh display
+            if (typeof populateWeeklySchedule === 'function') {
+                populateWeeklySchedule();
+            }
+            if (typeof updateCalendarWithEvents === 'function') {
+                updateCalendarWithEvents();
+            }
+        }
+    } finally {
+        hideSplash();
+        btnAdd.disabled = false;
+        btnChange.disabled = false;
+    }
+}
+
+// Delete an event
+async function deleteEvent(dateKey, eventIndex, event) {
+    resetInactivityTimer();
+    
+    // Confirm deletion using browser's confirm dialog
+    const confirmed = confirm(`Are you sure you want to delete this event?\n\n${event.time} - ${event.name}`);
+    if (!confirmed) {
+        return;
+    }
+    
+    const btnAdd = document.getElementById('btnAddItem');
+    const btnChange = document.getElementById('btnChangeToken');
+    
+    btnAdd.disabled = true;
+    btnChange.disabled = true;
+    
+    try {
+        showSplash();
+        showStatus('⏳ Deleting event...', 'info');
+        
+        // Pull latest data
+        const pulled = await pullFromGitHub();
+        if (!pulled) {
+            showStatus('⚠ Failed to load latest data', 'error', true);
+            return;
+        }
+        
+        const events = AppState.getEvents();
+        
+        // Remove the event
+        if (events[dateKey] && events[dateKey][eventIndex]) {
+            events[dateKey].splice(eventIndex, 1);
+            
+            // If no more events on this date, remove the date key
+            if (events[dateKey].length === 0) {
+                delete events[dateKey];
+            }
+        }
+        
+        // Sync to GitHub
+        const synced = await syncToGitHub();
+        
+        if (!synced) {
+            showStatus('⚠ Failed to delete event', 'error', true);
+        } else {
+            showStatus('✓ Event deleted successfully', 'success');
+            
+            // Refresh display
+            if (typeof populateWeeklySchedule === 'function') {
+                populateWeeklySchedule();
+            }
+            if (typeof updateCalendarWithEvents === 'function') {
+                updateCalendarWithEvents();
+            }
+        }
+    } finally {
+        hideSplash();
+        btnAdd.disabled = false;
+        btnChange.disabled = false;
+    }
+}
+
 // Event listeners
 document.getElementById('btnAddItem').addEventListener('click', addTestItem);
 document.getElementById('btnChangeToken').addEventListener('click', changeToken);
