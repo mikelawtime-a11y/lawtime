@@ -90,7 +90,12 @@ function attachScheduleCellListeners() {
     const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
     
     cells.forEach((cell, index) => {
-        cell.addEventListener('click', async () => {
+        cell.addEventListener('click', async (e) => {
+            // Don't add new event if clicking on an existing event
+            if (e.target.classList.contains('event-item')) {
+                return;
+            }
+            
             if (!AppState.getToken()) {
                 showStatus(' Please authenticate first', 'error', true);
                 return;
