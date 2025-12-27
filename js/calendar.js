@@ -164,7 +164,7 @@ function populateWeeklySchedule() {
                     
                     if (cell) {
                         const eventDiv = document.createElement('div');
-                        eventDiv.textContent = `${event.time} ${event.name}`;
+                        eventDiv.textContent = event.name;
                         eventDiv.style.marginBottom = '2px';
                         eventDiv.style.whiteSpace = 'normal';
                         eventDiv.style.wordBreak = 'break-word';
