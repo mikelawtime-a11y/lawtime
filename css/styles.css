@@ -70,20 +70,20 @@ h1 {
 
 /* Calendar Styles */
 .calendar-container {
-    margin-bottom: 25px;
+    margin-bottom: 15px;
     background: var(--bg-color);
-    padding: 20px;
+    padding: 10px 10px 10px 80px;
     border-radius: var(--border-radius);
 }
 
 .calendar-header {
     text-align: center;
-    margin-bottom: 15px;
+    margin-bottom: 8px;
 }
 
 .calendar-header h2 {
     margin: 0;
-    font-size: 1.3rem;
+    font-size: 0.95rem;
     color: var(--text-color);
     font-weight: 600;
 }
@@ -97,9 +97,9 @@ h1 {
 .calendar-day-header {
     text-align: center;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--primary-color);
-    padding: 8px 0;
+    padding: 4px 0;
 }
 
 .calendar-day {
@@ -108,11 +108,12 @@ h1 {
     align-items: center;
     justify-content: center;
     background: white;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
     color: var(--text-color);
     cursor: pointer;
     transition: all 0.2s ease;
+    min-height: 35px;
 }
 
 .calendar-day:not(.empty):hover {
@@ -165,9 +166,9 @@ h1 {
 
 /* Weekly Schedule Styles */
 .schedule-container {
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     background: var(--bg-color);
-    padding: 20px;
+    padding: 10px;
     border-radius: var(--border-radius);
 }
 
