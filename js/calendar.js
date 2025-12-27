@@ -100,6 +100,7 @@ if (document.readyState === 'loading') {
 
 // Populate weekly schedule with events for current week
 function populateWeeklySchedule() {
+    console.log('=== populateWeeklySchedule called ===');
     // TESTING: Hardcoded to Friday, December 26, 2025
     const today = new Date(2025, 11, 26); // Month is 0-indexed, so 11 = December
     
@@ -110,6 +111,8 @@ function populateWeeklySchedule() {
     currentWeekStart.setHours(0, 0, 0, 0);
     
     const events = AppState.getEvents();
+    console.log('Events loaded:', events);
+    console.log('Current week starts:', currentWeekStart.toISOString());
     
     // Clear existing content in schedule cells
     const cells = document.querySelectorAll('.schedule-cell');
@@ -117,8 +120,9 @@ function populateWeeklySchedule() {
         cell.textContent = '';
         cell.style.padding = '4px';
         cell.style.fontSize = '0.75rem';
-        cell.style.overflow = 'hidden';
+        cell.style.overflow = 'auto';
         cell.style.textOverflow = 'ellipsis';
+        cell.style.maxHeight = '80px';
     });
     
     // Populate each day of the week
@@ -127,51 +131,69 @@ function populateWeeklySchedule() {
         currentDate.setDate(currentWeekStart.getDate() + dayOffset);
         
         const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+        console.log(`Checking date: ${dateKey}, Day offset: ${dayOffset}`);
         
         if (events[dateKey] && events[dateKey].length > 0) {
+            console.log(`  Found ${events[dateKey].length} events for ${dateKey}:`, events[dateKey]);
+            
             // Group events by time slot
             const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
             
-            events[dateKey].forEach(event => {
+            events[dateKey].forEach((event, idx) => {
+                console.log(`    Event ${idx}: ${event.time} - ${event.name}`);
                 const eventHour = parseInt(event.time.split(':')[0]);
                 const eventMinute = parseInt(event.time.split(':')[1]);
                 
                 // Find which time slot this belongs to
                 let slotIndex = -1;
-                if (eventHour === 9) slotIndex = 0;
-                else if (eventHour === 10) slotIndex = 1;
-                else if (eventHour === 11) slotIndex = 2;
-                else if (eventHour === 14) slotIndex = 3;
-                else if (eventHour === 15) slotIndex = 4;
-                else if (eventHour === 16) slotIndex = 5;
-                else if (eventHour >= 9 && eventHour < 14) slotIndex = Math.min(2, Math.floor((eventHour - 9)));
-                else if (eventHour >= 14 && eventHour < 17) slotIndex = Math.min(5, 3 + (eventHour - 14));
+                if (eventHour >= 9 && eventHour < 10) slotIndex = 0;
+                else if (eventHour >= 10 && eventHour < 11) slotIndex = 1;
+                else if (eventHour >= 11 && eventHour < 14) slotIndex = 2;
+                else if (eventHour >= 14 && eventHour < 15) slotIndex = 3;
+                else if (eventHour >= 15 && eventHour < 16) slotIndex = 4;
+                else if (eventHour >= 16 && eventHour < 24) slotIndex = 5; // Evening events go to 16:00 slot
+                else if (eventHour >= 0 && eventHour < 9) slotIndex = 0; // Early morning to 09:00 slot
+                
+                console.log(`      Event hour: ${eventHour}, assigned to slot: ${slotIndex}`);
                 
                 if (slotIndex >= 0) {
                     // Calculate cell index: slotIndex * 6 (columns) + 1 (skip time column) + dayOffset
                     const cellIndex = slotIndex * 6 + 1 + dayOffset;
                     const cell = cells[cellIndex];
+                    console.log(`      Cell index: ${cellIndex}`);
                     
                     if (cell) {
                         const eventDiv = document.createElement('div');
                         eventDiv.textContent = `${event.time} ${event.name}`;
                         eventDiv.style.marginBottom = '2px';
-                        eventDiv.style.whiteSpace = 'nowrap';
+                        eventDiv.style.whiteSpace = 'normal';
+                        eventDiv.style.wordBreak = 'break-word';
                         eventDiv.style.backgroundColor = '#e3f2fd';
                         eventDiv.style.padding = '2px 4px';
                         eventDiv.style.borderRadius = '3px';
                         eventDiv.style.borderLeft = '3px solid #2196F3';
+                        eventDiv.style.fontSize = '0.7rem';
                         cell.appendChild(eventDiv);
+                        console.log(`      ✓ Added event to cell`);
+                    } else {
+                        console.log(`      ✗ Cell not found`);
                     }
+                } else {
+                    console.log(`      ✗ No slot assigned`);
                 }
             });
+        } else {
+            console.log(`  No events for ${dateKey}`);
         }
     }
+    console.log('=== populateWeeklySchedule complete ===');
 }
 
 // Add event indicators to calendar days
 function updateCalendarWithEvents() {
+    console.log('=== updateCalendarWithEvents called ===');
     const events = AppState.getEvents();
+    console.log('Events:', events);
     const calendarDays = document.querySelectorAll('.calendar-day');
     
     calendarDays.forEach(dayCell => {
@@ -190,19 +212,32 @@ function updateCalendarWithEvents() {
         const dateKey = `${cellYear}-${String(cellMonth + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
         
         if (events[dateKey] && events[dateKey].length > 0) {
-            // Add event indicator
-            const indicator = document.createElement('div');
-            indicator.style.position = 'absolute';
-            indicator.style.bottom = '4px';
-            indicator.style.right = '4px';
-            indicator.style.width = '6px';
-            indicator.style.height = '6px';
-            indicator.style.borderRadius = '50%';
-            indicator.style.backgroundColor = '#ff6b6b';
-            indicator.style.border = '1px solid white';
+            console.log(`  Day ${dayNumber} (${dateKey}) has ${events[dateKey].length} events:`, events[dateKey]);
+            
+            // Add event count badge
+            const badge = document.createElement('div');
+            badge.textContent = events[dateKey].length;
+            badge.style.position = 'absolute';
+            badge.style.top = '4px';
+            badge.style.right = '4px';
+            badge.style.backgroundColor = '#ff6b6b';
+            badge.style.color = 'white';
+            badge.style.borderRadius = '50%';
+            badge.style.width = '18px';
+            badge.style.height = '18px';
+            badge.style.fontSize = '0.7rem';
+            badge.style.fontWeight = 'bold';
+            badge.style.display = 'flex';
+            badge.style.alignItems = 'center';
+            badge.style.justifyContent = 'center';
+            badge.style.border = '2px solid white';
+            badge.title = events[dateKey].map(e => `${e.time} ${e.name}`).join('\n');
             
             dayCell.style.position = 'relative';
-            dayCell.appendChild(indicator);
+            dayCell.appendChild(badge);
+        } else {
+            console.log(`  Day ${dayNumber} (${dateKey}) has no events`);
         }
     });
+    console.log('=== updateCalendarWithEvents complete ===');
 }
