@@ -254,6 +254,8 @@ function showEventForm(prefillYear = null, prefillMonth = null, prefillDay = nul
             const content = contentInput.value.trim();
             
             if (content) {
+                // Show splash immediately when user confirms
+                showSplash();
                 cleanup();
                 resolve({ year, month, day, time, content });
             } else {
@@ -289,9 +291,6 @@ async function addTestItem() {
     // Disable buttons during operation
     btnAdd.disabled = true;
     btnChange.disabled = true;
-    
-    // Show splash screen
-    showSplash();
     
     try {
         showStatus('⏳ Adding event...', 'info');
