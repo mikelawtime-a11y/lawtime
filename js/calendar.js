@@ -218,7 +218,7 @@ function updateCalendarWithEvents() {
     const weekOffset = AppState.getWeekOffset();
     const referenceDate = new Date(today);
     referenceDate.setDate(today.getDate() + (weekOffset * 7));
-    referenceWeekMonday = new Date(referenceDate);
+    const referenceWeekMonday = new Date(referenceDate);
     const daysSinceMonday = (referenceDate.getDay() + 6) % 7;
     referenceWeekMonday.setDate(referenceDate.getDate() - daysSinceMonday);
     
@@ -233,8 +233,7 @@ function updateCalendarWithEvents() {
         const dayOfWeek = currentDate.getDay();
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
             visibleDates.push(new Date(currentDate));
-            daysCollected++
-            visibleDates.push(new Date(currentDate));
+            daysCollected++;
         }
         currentDate.setDate(currentDate.getDate() + 1);
     }
