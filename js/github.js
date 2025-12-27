@@ -182,8 +182,8 @@ function showEventForm() {
         // Set default values to current date
         const now = new Date();
         yearInput.value = now.getFullYear();
-        monthInput.value = now.getMonth() + 1;
-        dayInput.value = now.getDate();
+        monthInput.value = String(now.getMonth() + 1).padStart(2, '0');
+        dayInput.value = String(now.getDate()).padStart(2, '0');
         contentInput.value = '';
         
         modal.style.display = 'flex';
@@ -197,8 +197,8 @@ function showEventForm() {
         
         okBtn.onclick = () => {
             const year = yearInput.value;
-            const month = String(monthInput.value).padStart(2, '0');
-            const day = String(dayInput.value).padStart(2, '0');
+            const month = monthInput.value; // Already padded from select
+            const day = dayInput.value; // Already padded from select
             const time = timeSelect.value;
             const content = contentInput.value.trim();
             
