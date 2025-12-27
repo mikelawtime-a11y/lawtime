@@ -63,11 +63,15 @@ function attachScheduleCellListeners() {
             const dayOffset = index % 5; // Which day (0=Mon, 4=Fri)
             const time = timeSlots[slotIndex];
             
-            // Calculate the date for this cell
+            // Calculate the date for this cell using week offset
             const today = new Date(2025, 11, 26); // TESTING: hardcoded
-            const currentWeekStart = new Date(today);
-            const daysSinceMonday = (today.getDay() + 6) % 7;
-            currentWeekStart.setDate(today.getDate() - daysSinceMonday);
+            const weekOffset = AppState.getWeekOffset();
+            const referenceDate = new Date(today);
+            referenceDate.setDate(today.getDate() + (weekOffset * 7));
+            
+            const currentWeekStart = new Date(referenceDate);
+            const daysSinceMonday = (referenceDate.getDay() + 6) % 7;
+            currentWeekStart.setDate(referenceDate.getDate() - daysSinceMonday);
             currentWeekStart.setHours(0, 0, 0, 0);
             
             const cellDate = new Date(currentWeekStart);
