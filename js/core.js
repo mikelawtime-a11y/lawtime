@@ -268,7 +268,9 @@ function showCellActionModal(dateKey, time, existingEvents) {
         const buttonsContainer = modal.querySelector('.modal-buttons');
         
         modalTitle.textContent = 'Choose Action';
-        modalMessage.textContent = `${time} - ${existingEvents.length} event(s) found`;
+        modalMessage.textContent = existingEvents.length > 0 
+            ? `${time} - ${existingEvents.length} event(s) found` 
+            : `${time} - No events`;
         modal.style.display = 'flex';
         
         // Clear existing buttons
