@@ -7,6 +7,50 @@ function handleRateLimitResponse(response) {
     return `⚠ Rate limit exceeded. Try again after ${resetDate}`;
 }
 
+// Validate event data structure
+function validateEvents(data) {
+    if (typeof data !== 'object' || data === null) {
+        logger.error('Invalid data: not an object');
+        return false;
+    }
+    
+    for (const [dateKey, events] of Object.entries(data)) {
+        // Validate date key format (YYYY-MM-DD)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+            logger.error(`Invalid date key format: ${dateKey}`);
+            return false;
+        }
+        
+        // Validate events array
+        if (!Array.isArray(events)) {
+            logger.error(`Events for ${dateKey} is not an array`);
+            return false;
+        }
+        
+        // Validate each event
+        for (const event of events) {
+            if (!event || typeof event !== 'object') {
+                logger.error(`Invalid event in ${dateKey}`);
+                return false;
+            }
+            if (!event.name || typeof event.name !== 'string') {
+                logger.error(`Event missing or invalid name in ${dateKey}`);
+                return false;
+            }
+            if (!event.time || typeof event.time !== 'string') {
+                logger.error(`Event missing or invalid time in ${dateKey}`);
+                return false;
+            }
+            // Ensure event has an ID (add if missing for backwards compatibility)
+            if (!event.id) {
+                event.id = crypto.randomUUID();
+                logger.warn(`Added missing ID to event in ${dateKey}`);
+            }
+        }
+    }
+    return true;
+}
+
 // Calculate which months are visible in the current 3-week view
 function getVisibleMonths() {
     const now = new Date();
@@ -53,7 +97,7 @@ function base64EncodeUnicode(str) {
         const binString = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
         return btoa(binString);
     } catch (e) {
-        console.error('Base64 encode error:', e);
+        logger.error('Base64 encode error:', e);
         // Fallback to regular btoa if TextEncoder fails
         return btoa(str);
     }
@@ -67,7 +111,7 @@ function base64DecodeUnicode(str) {
         const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0));
         return new TextDecoder().decode(bytes);
     } catch (e) {
-        console.error('Base64 decode error:', e);
+        logger.error('Base64 decode error:', e);
         // Fallback to regular atob if TextDecoder fails
         return atob(str);
     }
@@ -86,56 +130,75 @@ async function pullFromGitHub() {
     try {
         // Get all months that are visible in the current view
         const visibleMonths = getVisibleMonths();
-        console.log('Loading data for months:', visibleMonths);
+        logger.log('Loading data for months:', visibleMonths);
         
-        // Load data from each month file
+        // Load data from each month file with graceful error handling
         const allEvents = {};
+        let failedMonths = 0;
         
         for (const {year, month} of visibleMonths) {
-            const filePath = getGitHubPathForMonth(year, month);
-            const url = `https://api.github.com/repos/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/contents/${filePath}`;
-            
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${AppState.getToken()}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
-            
-            if (response.ok) {
-                const fileData = await response.json();
-                const content = base64DecodeUnicode(fileData.content.replace(/\s/g, ''));
-                const monthEvents = JSON.parse(content);
+            try {
+                const filePath = getGitHubPathForMonth(year, month);
+                const url = `https://api.github.com/repos/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/contents/${filePath}`;
                 
-                // Merge events from this month into allEvents
-                Object.assign(allEvents, monthEvents);
-                console.log(`Loaded ${Object.keys(monthEvents).length} event dates from ${filePath}`);
-            } else if (response.status === 404) {
-                // File doesn't exist yet for this month - that's okay
-                console.log(`No file found for ${filePath} (this is normal for new months)`);
-            } else if (response.status === 403) {
-                // Handle rate limiting
-                const data = await response.json();
-                if (data.message && data.message.includes('rate limit')) {
-                    showStatus(handleRateLimitResponse(response), 'error', true);
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${AppState.getToken()}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const fileData = await response.json();
+                    const content = base64DecodeUnicode(fileData.content.replace(/\s/g, ''));
+                    const monthEvents = JSON.parse(content);
+                    
+                    // Validate before merging
+                    if (validateEvents(monthEvents)) {
+                        Object.assign(allEvents, monthEvents);
+                        logger.log(`Loaded ${Object.keys(monthEvents).length} event dates from ${filePath}`);
+                    } else {
+                        logger.error(`Invalid data format in ${filePath}`);
+                        failedMonths++;
+                    }
+                } else if (response.status === 404) {
+                    // File doesn't exist yet for this month - that's okay
+                    logger.log(`No file found for ${filePath} (this is normal for new months)`);
+                } else if (response.status === 403) {
+                    // Handle rate limiting
+                    const data = await response.json();
+                    if (data.message && data.message.includes('rate limit')) {
+                        showStatus(handleRateLimitResponse(response), 'error', true);
+                    } else {
+                        showStatus('⚠ Access forbidden. Check token permissions.', 'error', true);
+                    }
+                    return false;
+                } else if (response.status === 401) {
+                    showStatus('⚠ Token expired or invalid. Please change token.', 'error', true);
+                    return false;
                 } else {
-                    showStatus('⚠ Access forbidden. Check token permissions.', 'error', true);
+                    logger.error(`Error loading ${filePath}:`, response.status);
+                    failedMonths++;
                 }
-                return false;
-            } else if (response.status === 401) {
-                showStatus('⚠ Token expired or invalid. Please change token.', 'error', true);
-                return false;
-            } else {
-                console.error(`Error loading ${filePath}:`, response.status);
+            } catch (error) {
+                logger.warn(`Failed to load ${year}-${String(month).padStart(2, '0')}: ${error.message}`);
+                failedMonths++;
+                // Continue with other months
             }
         }
         
         AppState.setEvents(allEvents);
-        showStatus('✓ Loaded data from GitHub', 'success');
-        console.log(`Total events loaded: ${Object.keys(allEvents).length} dates`);
+        
+        if (failedMonths > 0) {
+            showStatus(`✓ Loaded data (${failedMonths} month(s) unavailable)`, 'success');
+        } else {
+            showStatus('✓ Loaded data from GitHub', 'success');
+        }
+        
+        logger.log(`Total events loaded: ${Object.keys(allEvents).length} dates`);
         return true;
     } catch (error) {
-        console.error('GitHub pull error:', error);
+        logger.error('GitHub pull error:', error);
         showStatus('⚠ Network error loading from GitHub', 'error', true);
         return false;
     }
@@ -167,7 +230,7 @@ async function syncToGitHub() {
             eventsByMonth[monthKey][dateKey] = allEvents[dateKey];
         }
         
-        console.log('Syncing events to months:', Object.keys(eventsByMonth));
+        logger.log('Syncing events to months:', Object.keys(eventsByMonth));
         
         // Save each month's events to its respective file
         for (const monthKey in eventsByMonth) {
@@ -213,7 +276,7 @@ async function syncToGitHub() {
             });
             
             if (updateResponse.ok) {
-                console.log(`Successfully synced ${filePath}`);
+                logger.log(`Successfully synced ${filePath}`);
             } else if (updateResponse.status === 403) {
                 // Handle rate limiting
                 const data = await updateResponse.json();
@@ -228,7 +291,7 @@ async function syncToGitHub() {
                 return false;
             } else {
                 const errorData = await updateResponse.json();
-                console.error('Sync failed:', errorData);
+                logger.error('Sync failed:', errorData);
                 showStatus('⚠ Sync failed: ' + (errorData.message || 'Unknown error'), 'error', true);
                 return false;
             }
@@ -238,7 +301,7 @@ async function syncToGitHub() {
         return true;
     } catch (error) {
         showStatus('⚠ Network error during sync: ' + error.message, 'error', true);
-        console.error('GitHub sync error:', error);
+        logger.error('GitHub sync error:', error);
         return false;
     }
 }

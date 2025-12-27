@@ -103,7 +103,7 @@ if (document.readyState === 'loading') {
 
 // Populate weekly schedule with events for current week
 function populateWeeklySchedule() {
-    console.log('=== populateWeeklySchedule called ===');
+    logger.log('=== populateWeeklySchedule called ===');
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
@@ -119,8 +119,8 @@ function populateWeeklySchedule() {
     currentWeekStart.setHours(0, 0, 0, 0);
     
     const events = AppState.getEvents();
-    console.log('Events loaded:', events);
-    console.log('Current week starts:', currentWeekStart.toISOString());
+    logger.log('Events loaded:', events);
+    logger.log('Current week starts:', currentWeekStart.toISOString());
     
     // Clear existing content in schedule cells
     const cells = document.querySelectorAll('.schedule-cell');
@@ -139,16 +139,16 @@ function populateWeeklySchedule() {
         currentDate.setDate(currentWeekStart.getDate() + dayOffset);
         
         const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
-        console.log(`Checking date: ${dateKey}, Day offset: ${dayOffset}`);
+        logger.log(`Checking date: ${dateKey}, Day offset: ${dayOffset}`);
         
         if (events[dateKey] && events[dateKey].length > 0) {
-            console.log(`  Found ${events[dateKey].length} events for ${dateKey}:`, events[dateKey]);
+            logger.log(`  Found ${events[dateKey].length} events for ${dateKey}:`, events[dateKey]);
             
             // Group events by time slot
             const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
             
-            events[dateKey].forEach((event, eventIndex) => {
-                console.log(`    Event ${eventIndex}: ${event.time} - ${event.name}`);
+            events[dateKey].forEach((event) => {
+                logger.log(`    Event: ${event.time} - ${event.name}`);
                 const eventHour = parseInt(event.time.split(':')[0]);
                 const eventMinute = parseInt(event.time.split(':')[1]);
                 
@@ -162,54 +162,53 @@ function populateWeeklySchedule() {
                 else if (eventHour >= 16 && eventHour < 24) slotIndex = 5; // Evening events go to 16:00 slot
                 else if (eventHour >= 0 && eventHour < 9) slotIndex = 0; // Early morning to 09:00 slot
                 
-                console.log(`      Event hour: ${eventHour}, assigned to slot: ${slotIndex}`);
+                logger.log(`      Event hour: ${eventHour}, assigned to slot: ${slotIndex}`);
                 
                 if (slotIndex >= 0) {
                     // Calculate cell index: slotIndex * 5 (schedule cells per row) + dayOffset
                     const cellIndex = slotIndex * 5 + dayOffset;
                     const cell = cells[cellIndex];
-                    console.log(`      Cell index: ${cellIndex}`);
+                    logger.log(`      Cell index: ${cellIndex}`);
                     
                     if (cell) {
-                        // Create clickable event item div
+                        // Create clickable event item div with accessibility
                         const eventDiv = document.createElement('div');
                         eventDiv.className = 'event-item';
                         eventDiv.textContent = event.name;
-                        eventDiv.title = `${event.time} - ${event.name}\nClick to edit or delete`;
+                        eventDiv.title = `${event.time} - ${event.name}\nClick or press Enter to edit or delete`;
                         
-                        // Store event metadata
+                        // Accessibility attributes
+                        eventDiv.setAttribute('role', 'button');
+                        eventDiv.setAttribute('tabindex', '0');
+                        eventDiv.setAttribute('aria-label', `Event: ${event.name} at ${event.time}. Press Enter to edit or delete.`);
+                        
+                        // Store event metadata using ID instead of index
                         eventDiv.dataset.dateKey = dateKey;
-                        eventDiv.dataset.eventIndex = eventIndex;
+                        eventDiv.dataset.eventId = event.id || crypto.randomUUID();
                         eventDiv.dataset.eventName = event.name;
                         eventDiv.dataset.eventTime = event.time;
                         
-                        // Add click handler to open options
-                        eventDiv.addEventListener('click', async (e) => {
-                            e.stopPropagation(); // Prevent cell click
-                            await showEventOptions(dateKey, eventIndex, event);
-                        });
-                        
                         cell.appendChild(eventDiv);
-                        console.log(`      ✓ Added clickable event to cell`);
+                        logger.log(`      ✓ Added clickable event to cell`);
                     } else {
-                        console.log(`      ✗ Cell not found`);
+                        logger.log(`      ✗ Cell not found`);
                     }
                 } else {
-                    console.log(`      ✗ No slot assigned`);
+                    logger.log(`      ✗ No slot assigned`);
                 }
             });
         } else {
-            console.log(`  No events for ${dateKey}`);
+            logger.log(`  No events for ${dateKey}`);
         }
     }
-    console.log('=== populateWeeklySchedule complete ===');
+    logger.log('=== populateWeeklySchedule complete ===');
 }
 
 // Add event indicators to calendar days
 function updateCalendarWithEvents() {
-    console.log('=== updateCalendarWithEvents called ===');
+    logger.log('=== updateCalendarWithEvents called ===');
     const events = AppState.getEvents();
-    console.log('Events:', events);
+    logger.log('Events:', events);
     const calendarDays = document.querySelectorAll('.calendar-day');
     
     // Calculate the date range being displayed (same logic as generateCalendar)
@@ -244,7 +243,7 @@ function updateCalendarWithEvents() {
         const dateKey = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, '0')}-${String(cellDate.getDate()).padStart(2, '0')}`;
         
         if (events[dateKey] && events[dateKey].length > 0) {
-            console.log(`  Day ${cellDate.getDate()} (${dateKey}) has ${events[dateKey].length} events:`, events[dateKey]);
+            logger.log(`  Day ${cellDate.getDate()} (${dateKey}) has ${events[dateKey].length} events:`, events[dateKey]);
             
             // Add event count badge
             const badge = document.createElement('div');
@@ -268,8 +267,8 @@ function updateCalendarWithEvents() {
             dayCell.style.position = 'relative';
             dayCell.appendChild(badge);
         } else {
-            console.log(`  Day ${cellDate.getDate()} (${dateKey}) has no events`);
+            logger.log(`  Day ${cellDate.getDate()} (${dateKey}) has no events`);
         }
     });
-    console.log('=== updateCalendarWithEvents complete ===');
+    logger.log('=== updateCalendarWithEvents complete ===');
 }

@@ -1,4 +1,4 @@
-// Application initialization and event handling
+﻿// Application initialization and event handling
 
 // SECURITY: Enforce HTTPS in production (but allow file:// for local testing)
 if (location.protocol !== 'https:' && location.protocol !== 'file:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
@@ -12,7 +12,7 @@ async function init() {
     
     // If stored token exists but wasn't unlocked, don't proceed
     if (tokenStatus.hasStoredToken && !tokenStatus.unlocked) {
-        showStatus('⚠ Please reload and enter correct password', 'error', true);
+        showStatus(' Please reload and enter correct password', 'error', true);
         return;
     }
     
@@ -20,7 +20,7 @@ async function init() {
     if (!AppState.getToken() && !tokenStatus.hasStoredToken) {
         const hasToken = await promptForToken();
         if (!hasToken) {
-            showStatus('⚠ Cannot proceed without authentication', 'error', true);
+            showStatus(' Cannot proceed without authentication', 'error', true);
             return;
         }
     }
@@ -40,6 +40,44 @@ async function init() {
     }
 }
 
+// Event delegation for schedule events - attach once to parent container
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupEventDelegation);
+} else {
+    setupEventDelegation();
+}
+
+function setupEventDelegation() {
+    const scheduleContainer = document.querySelector('.schedule-container');
+    if (scheduleContainer) {
+        // Click handler
+        scheduleContainer.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('event-item')) {
+                e.stopPropagation();
+                const dateKey = e.target.dataset.dateKey;
+                const eventId = e.target.dataset.eventId;
+                const event = getEventById(dateKey, eventId);
+                if (event) {
+                    await showEventOptions(dateKey, eventId, event);
+                }
+            }
+        });
+        
+        // Keyboard handler for accessibility
+        scheduleContainer.addEventListener('keydown', async (e) => {
+            if (e.target.classList.contains('event-item') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                const dateKey = e.target.dataset.dateKey;
+                const eventId = e.target.dataset.eventId;
+                const event = getEventById(dateKey, eventId);
+                if (event) {
+                    await showEventOptions(dateKey, eventId, event);
+                }
+            }
+        });
+    }
+}
+
 // Clear references when page unloads (garbage collector will handle actual cleanup)
 window.addEventListener('beforeunload', () => {
     clearTimeout(AppState.getInactivityTimer());
@@ -54,7 +92,7 @@ function attachScheduleCellListeners() {
     cells.forEach((cell, index) => {
         cell.addEventListener('click', async () => {
             if (!AppState.getToken()) {
-                showStatus('⚠ Please authenticate first', 'error', true);
+                showStatus(' Please authenticate first', 'error', true);
                 return;
             }
             
@@ -104,11 +142,11 @@ async function addEventToCell(year, month, day, time) {
     btnChange.disabled = true;
     
     try {
-        showStatus('⏳ Adding event...', 'info');
+        showStatus(' Adding event...', 'info');
         
         const pulled = await pullFromGitHub();
         if (!pulled) {
-            showStatus('⚠ Failed to load data. Please check your connection or token.', 'error', true);
+            showStatus(' Failed to load data. Please check your connection or token.', 'error', true);
             return;
         }
         
@@ -119,7 +157,9 @@ async function addEventToCell(year, month, day, time) {
             events[dateKey] = [];
         }
         
+        // Add event with unique ID
         events[dateKey].push({
+            id: crypto.randomUUID(),
             name: eventData.content,
             time: eventData.time
         });
@@ -131,17 +171,11 @@ async function addEventToCell(year, month, day, time) {
             if (events[dateKey].length === 0) {
                 delete events[dateKey];
             }
-            showStatus('⚠ Failed to sync. Event not added.', 'error', true);
+            showStatus(' Failed to sync. Event not added.', 'error', true);
         } else {
             // Reload from GitHub to ensure we have the latest data
             await pullFromGitHub();
-            
-            if (typeof populateWeeklySchedule === 'function') {
-                populateWeeklySchedule();
-            }
-            if (typeof updateCalendarWithEvents === 'function') {
-                updateCalendarWithEvents();
-            }
+            refreshCalendarDisplay();
         }
     } finally {
         // Hide splash screen
@@ -156,63 +190,30 @@ async function addEventToCell(year, month, day, time) {
 function navigatePreviousWeek() {
     const currentOffset = AppState.getWeekOffset();
     AppState.setWeekOffset(currentOffset - 1);
-    
-    // Regenerate calendar and schedule
-    if (typeof generateCalendar === 'function') {
-        generateCalendar();
-    }
-    if (typeof populateWeeklySchedule === 'function') {
-        populateWeeklySchedule();
-    }
-    if (typeof updateCalendarWithEvents === 'function') {
-        updateCalendarWithEvents();
-    }
-    
-    // Re-attach click listeners to new schedule cells
-    attachScheduleCellListeners();
+    refreshCalendarDisplay();
 }
 
 // Navigate to next week
 function navigateNextWeek() {
     const currentOffset = AppState.getWeekOffset();
     AppState.setWeekOffset(currentOffset + 1);
-    
-    // Regenerate calendar and schedule
-    if (typeof generateCalendar === 'function') {
-        generateCalendar();
-    }
-    if (typeof populateWeeklySchedule === 'function') {
-        populateWeeklySchedule();
-    }
-    if (typeof updateCalendarWithEvents === 'function') {
-        updateCalendarWithEvents();
-    }
-    
-    // Re-attach click listeners to new schedule cells
-    attachScheduleCellListeners();
+    refreshCalendarDisplay();
 }
 
 // Jump to current week
 function navigateToCurrentWeek() {
     AppState.setWeekOffset(0);
-    
-    // Regenerate calendar and schedule
-    if (typeof generateCalendar === 'function') {
-        generateCalendar();
-    }
-    if (typeof populateWeeklySchedule === 'function') {
-        populateWeeklySchedule();
-    }
-    if (typeof updateCalendarWithEvents === 'function') {
-        updateCalendarWithEvents();
-    }
-    
-    // Re-attach click listeners to new schedule cells
-    attachScheduleCellListeners();
+    refreshCalendarDisplay();
 }
 
 // Update an existing event
-async function updateEvent(dateKey, eventIndex, oldEvent) {
+async function updateEvent(dateKey, eventIdOrIndex, oldEvent) {
+    // Prevent race conditions
+    if (AppState.isOperationInProgress()) {
+        showStatus(' Operation in progress, please wait...', 'info');
+        return;
+    }
+    
     resetInactivityTimer();
     
     // Parse the date key to get year, month, day
@@ -236,36 +237,44 @@ async function updateEvent(dateKey, eventIndex, oldEvent) {
     
     btnAdd.disabled = true;
     btnChange.disabled = true;
+    AppState.setOperationInProgress(true);
     
     try {
         showSplash();
-        showStatus('⏳ Updating event...', 'info');
+        showStatus(' Updating event...', 'info');
         
         // Pull latest data
         const pulled = await pullFromGitHub();
         if (!pulled) {
-            showStatus('⚠ Failed to load latest data', 'error', true);
+            showStatus(' Failed to load latest data', 'error', true);
             return;
         }
         
         const events = AppState.getEvents();
         const newDateKey = `${eventData.year}-${eventData.month}-${eventData.day}`;
         
-        // Remove from old date
-        if (events[dateKey] && events[dateKey][eventIndex]) {
-            events[dateKey].splice(eventIndex, 1);
+        // Remove from old date - find by ID if available, otherwise by index
+        if (events[dateKey]) {
+            const eventIndex = typeof eventIdOrIndex === 'string' 
+                ? events[dateKey].findIndex(e => e.id === eventIdOrIndex)
+                : eventIdOrIndex;
             
-            // If no more events on this date, remove the date key
-            if (events[dateKey].length === 0) {
-                delete events[dateKey];
+            if (eventIndex !== -1 && events[dateKey][eventIndex]) {
+                events[dateKey].splice(eventIndex, 1);
+                
+                // If no more events on this date, remove the date key
+                if (events[dateKey].length === 0) {
+                    delete events[dateKey];
+                }
             }
         }
         
-        // Add to new date
+        // Add to new date with unique ID
         if (!events[newDateKey]) {
             events[newDateKey] = [];
         }
         events[newDateKey].push({
+            id: crypto.randomUUID(),
             name: eventData.content,
             time: eventData.time
         });
@@ -274,27 +283,27 @@ async function updateEvent(dateKey, eventIndex, oldEvent) {
         const synced = await syncToGitHub();
         
         if (!synced) {
-            showStatus('⚠ Failed to update event', 'error', true);
+            showStatus(' Failed to update event', 'error', true);
         } else {
-            showStatus('✓ Event updated successfully', 'success');
-            
-            // Refresh display
-            if (typeof populateWeeklySchedule === 'function') {
-                populateWeeklySchedule();
-            }
-            if (typeof updateCalendarWithEvents === 'function') {
-                updateCalendarWithEvents();
-            }
+            showStatus(' Event updated successfully', 'success');
+            refreshCalendarDisplay();
         }
     } finally {
         hideSplash();
         btnAdd.disabled = false;
         btnChange.disabled = false;
+        AppState.setOperationInProgress(false);
     }
 }
 
 // Delete an event
-async function deleteEvent(dateKey, eventIndex, event) {
+async function deleteEvent(dateKey, eventIdOrIndex, event) {
+    // Prevent race conditions
+    if (AppState.isOperationInProgress()) {
+        showStatus(' Operation in progress, please wait...', 'info');
+        return;
+    }
+    
     resetInactivityTimer();
     
     // Confirm deletion using browser's confirm dialog
@@ -308,27 +317,34 @@ async function deleteEvent(dateKey, eventIndex, event) {
     
     btnAdd.disabled = true;
     btnChange.disabled = true;
+    AppState.setOperationInProgress(true);
     
     try {
         showSplash();
-        showStatus('⏳ Deleting event...', 'info');
+        showStatus(' Deleting event...', 'info');
         
         // Pull latest data
         const pulled = await pullFromGitHub();
         if (!pulled) {
-            showStatus('⚠ Failed to load latest data', 'error', true);
+            showStatus(' Failed to load latest data', 'error', true);
             return;
         }
         
         const events = AppState.getEvents();
         
-        // Remove the event
-        if (events[dateKey] && events[dateKey][eventIndex]) {
-            events[dateKey].splice(eventIndex, 1);
+        // Remove the event - find by ID if available, otherwise by index
+        if (events[dateKey]) {
+            const eventIndex = typeof eventIdOrIndex === 'string'
+                ? events[dateKey].findIndex(e => e.id === eventIdOrIndex)
+                : eventIdOrIndex;
             
-            // If no more events on this date, remove the date key
-            if (events[dateKey].length === 0) {
-                delete events[dateKey];
+            if (eventIndex !== -1 && events[dateKey][eventIndex]) {
+                events[dateKey].splice(eventIndex, 1);
+                
+                // If no more events on this date, remove the date key
+                if (events[dateKey].length === 0) {
+                    delete events[dateKey];
+                }
             }
         }
         
@@ -336,22 +352,16 @@ async function deleteEvent(dateKey, eventIndex, event) {
         const synced = await syncToGitHub();
         
         if (!synced) {
-            showStatus('⚠ Failed to delete event', 'error', true);
+            showStatus(' Failed to delete event', 'error', true);
         } else {
-            showStatus('✓ Event deleted successfully', 'success');
-            
-            // Refresh display
-            if (typeof populateWeeklySchedule === 'function') {
-                populateWeeklySchedule();
-            }
-            if (typeof updateCalendarWithEvents === 'function') {
-                updateCalendarWithEvents();
-            }
+            showStatus(' Event deleted successfully', 'success');
+            refreshCalendarDisplay();
         }
     } finally {
         hideSplash();
         btnAdd.disabled = false;
         btnChange.disabled = false;
+        AppState.setOperationInProgress(false);
     }
 }
 

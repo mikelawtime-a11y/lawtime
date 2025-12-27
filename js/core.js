@@ -5,7 +5,15 @@ const CONFIG = {
     TOKEN_EXPIRY_DAYS: 7, // Token expires after 7 days (change to 30 for a month)
     STATUS_HIDE_DELAY: 5000, // milliseconds
     INACTIVITY_TIMEOUT: 15 * 60 * 1000, // 15 minutes
-    MIN_PASSWORD_LENGTH: 8
+    MIN_PASSWORD_LENGTH: 8,
+    DEBUG: false // Set to true for development logging
+};
+
+// Conditional logger utility
+const logger = {
+    log: (...args) => CONFIG.DEBUG && console.log(...args),
+    warn: (...args) => CONFIG.DEBUG && console.warn(...args),
+    error: (...args) => console.error(...args) // Always log errors
 };
 
 // Generate file path based on current year and month (e.g., 202512.json for Dec 2025)
@@ -28,6 +36,7 @@ const AppState = (() => {
     let _events = {};
     let _inactivityTimer = null;
     let _weekOffset = 0; // 0 = current week, -1 = previous week, +1 = next week
+    let _operationInProgress = false; // Race condition prevention
     
     return {
         getToken: () => _token,
@@ -55,9 +64,28 @@ const AppState = (() => {
         getWeekOffset: () => _weekOffset,
         setWeekOffset: (val) => {
             _weekOffset = val;
+        },
+        isOperationInProgress: () => _operationInProgress,
+        setOperationInProgress: (val) => {
+            _operationInProgress = val;
         }
     };
 })();
+
+// Utility function to refresh calendar display
+function refreshCalendarDisplay() {
+    if (typeof generateCalendar === 'function') generateCalendar();
+    if (typeof populateWeeklySchedule === 'function') populateWeeklySchedule();
+    if (typeof updateCalendarWithEvents === 'function') updateCalendarWithEvents();
+    if (typeof attachScheduleCellListeners === 'function') attachScheduleCellListeners();
+}
+
+// Helper function to get event by ID
+function getEventById(dateKey, eventId) {
+    const events = AppState.getEvents();
+    if (!events[dateKey]) return null;
+    return events[dateKey].find(e => e.id === eventId);
+}
 
 // Session timeout - auto-lock after inactivity
 function resetInactivityTimer() {
@@ -231,7 +259,7 @@ function showModal(title, message, placeholder = '', isPassword = false) {
 }
 
 // Show event options dialog (Edit/Delete/Cancel)
-function showEventOptions(dateKey, eventIndex, event) {
+function showEventOptions(dateKey, eventIdOrIndex, event) {
     resetInactivityTimer();
     return new Promise((resolve) => {
         const modal = document.getElementById('eventOptionsModal');
@@ -258,13 +286,13 @@ function showEventOptions(dateKey, eventIndex, event) {
         editBtn.onclick = async () => {
             cleanup();
             resolve('edit');
-            await updateEvent(dateKey, eventIndex, event);
+            await updateEvent(dateKey, eventIdOrIndex, event);
         };
         
         deleteBtn.onclick = async () => {
             cleanup();
             resolve('delete');
-            await deleteEvent(dateKey, eventIndex, event);
+            await deleteEvent(dateKey, eventIdOrIndex, event);
         };
         
         cancelBtn.onclick = () => {
