@@ -157,8 +157,8 @@ function populateWeeklySchedule() {
                 console.log(`      Event hour: ${eventHour}, assigned to slot: ${slotIndex}`);
                 
                 if (slotIndex >= 0) {
-                    // Calculate cell index: slotIndex * 6 (columns) + 1 (skip time column) + dayOffset
-                    const cellIndex = slotIndex * 6 + 1 + dayOffset;
+                    // Calculate cell index: slotIndex * 5 (schedule cells per row) + dayOffset
+                    const cellIndex = slotIndex * 5 + dayOffset;
                     const cell = cells[cellIndex];
                     console.log(`      Cell index: ${cellIndex}`);
                     
