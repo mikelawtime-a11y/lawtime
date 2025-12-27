@@ -62,6 +62,22 @@ function resetInactivityTimer() {
     AppState.setInactivityTimer(timer);
 }
 
+// Show splash screen
+function showSplash() {
+    const splash = document.getElementById('splashScreen');
+    if (splash) {
+        splash.style.display = 'flex';
+    }
+}
+
+// Hide splash screen
+function hideSplash() {
+    const splash = document.getElementById('splashScreen');
+    if (splash) {
+        splash.style.display = 'none';
+    }
+}
+
 // Show status message
 function showStatus(message, type, persistent = false) {
     const statusEl = document.getElementById('status');

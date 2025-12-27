@@ -324,6 +324,9 @@ async function addTestItem() {
             }
             showStatus('⚠ Failed to sync. Event not added.', 'error', true);
         } else {
+            // Show splash while reloading
+            showSplash();
+            
             // Reload from GitHub to ensure we have the latest data
             await pullFromGitHub();
             
@@ -334,6 +337,9 @@ async function addTestItem() {
             if (typeof updateCalendarWithEvents === 'function') {
                 updateCalendarWithEvents();
             }
+            
+            // Hide splash after reload
+            hideSplash();
         }
     } finally {
         // Re-enable buttons

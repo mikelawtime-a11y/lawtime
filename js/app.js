@@ -128,6 +128,9 @@ async function addEventToCell(year, month, day, time) {
             }
             showStatus('⚠ Failed to sync. Event not added.', 'error', true);
         } else {
+            // Show splash while reloading
+            showSplash();
+            
             // Reload from GitHub to ensure we have the latest data
             await pullFromGitHub();
             
@@ -137,6 +140,9 @@ async function addEventToCell(year, month, day, time) {
             if (typeof updateCalendarWithEvents === 'function') {
                 updateCalendarWithEvents();
             }
+            
+            // Hide splash after reload
+            hideSplash();
         }
     } finally {
         btnAdd.disabled = false;
