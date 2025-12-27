@@ -127,11 +127,30 @@ h1 {
     cursor: default;
 }
 
+.calendar-day.current-week {
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    font-weight: 500;
+    border: 2px solid #90caf9;
+}
+
+.calendar-day.current-week:hover {
+    background: linear-gradient(135deg, #bbdefb, #90caf9);
+    border-color: var(--primary-color);
+}
+
 .calendar-day.today {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-    color: white;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a6f) !important;
+    color: white !important;
     font-weight: bold;
-    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.4);
+    font-size: 1.1rem;
+    border: 3px solid #c92a2a !important;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.6);
+    transform: scale(1.08);
+}
+
+.calendar-day.today:hover {
+    background: linear-gradient(135deg, #ee5a6f, #ff6b6b) !important;
+    transform: scale(1.1);
 }
 
 .calendar-day.other-month {

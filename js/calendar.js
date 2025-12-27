@@ -46,6 +46,16 @@ function generateCalendar() {
         calendarEl.appendChild(dayHeader);
     });
     
+    // Calculate current week range (Monday to Friday)
+    const currentWeekStart = new Date(today);
+    const daysSinceMonday = (today.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+    currentWeekStart.setDate(today.getDate() - daysSinceMonday);
+    currentWeekStart.setHours(0, 0, 0, 0);
+    
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 4); // Friday
+    currentWeekEnd.setHours(23, 59, 59, 999);
+    
     // Generate exactly 4 weeks (28 days) starting from startDate, but only show weekdays
     const currentDate = new Date(startDate);
     for (let i = 0; i < 28; i++) {
@@ -57,7 +67,12 @@ function generateCalendar() {
             dayCell.className = 'calendar-day';
             dayCell.textContent = currentDate.getDate();
             
-            // Highlight today
+            // Check if date is in current week
+            if (currentDate >= currentWeekStart && currentDate <= currentWeekEnd) {
+                dayCell.classList.add('current-week');
+            }
+            
+            // Highlight today (takes priority over current-week)
             if (currentDate.getTime() === today.getTime()) {
                 dayCell.classList.add('today');
             }
