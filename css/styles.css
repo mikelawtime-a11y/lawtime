@@ -103,7 +103,6 @@ h1 {
 }
 
 .calendar-day {
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -113,7 +112,7 @@ h1 {
     color: var(--text-color);
     cursor: pointer;
     transition: all 0.2s ease;
-    min-height: 35px;
+    height: 30px;
 }
 
 .calendar-day:not(.empty):hover {
