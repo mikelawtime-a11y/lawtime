@@ -1,7 +1,7 @@
 // Application initialization and event handling
 
-// SECURITY: Enforce HTTPS in production
-if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+// SECURITY: Enforce HTTPS in production (but allow file:// for local testing)
+if (location.protocol !== 'https:' && location.protocol !== 'file:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
     location.replace(`https:${location.href.substring(location.protocol.length)}`);
 }
 
