@@ -168,7 +168,7 @@ async function syncToGitHub() {
 }
 
 // Show event form modal
-function showEventForm() {
+function showEventForm(prefillYear = null, prefillMonth = null, prefillDay = null, prefillTime = null) {
     return new Promise((resolve) => {
         const modal = document.getElementById('eventFormModal');
         const yearInput = document.getElementById('eventYear');
@@ -206,13 +206,21 @@ function showEventForm() {
             }
         };
         
-        // Set default values to current date
+        // Set default values to current date or use prefilled values
         const now = new Date();
-        yearInput.value = now.getFullYear();
-        monthInput.value = String(now.getMonth() + 1).padStart(2, '0');
+        yearInput.value = prefillYear || now.getFullYear();
+        monthInput.value = prefillMonth || String(now.getMonth() + 1).padStart(2, '0');
         
-        // Populate days based on current month
-        populateDays(now.getFullYear(), now.getMonth() + 1, String(now.getDate()).padStart(2, '0'));
+        // Populate days based on selected month
+        const selectedYear = parseInt(yearInput.value);
+        const selectedMonth = parseInt(monthInput.value);
+        const selectedDay = prefillDay || String(now.getDate()).padStart(2, '0');
+        populateDays(selectedYear, selectedMonth, selectedDay);
+        
+        // Set time if prefilled
+        if (prefillTime) {
+            timeSelect.value = prefillTime;
+        }
         
         contentInput.value = '';
         
@@ -316,6 +324,9 @@ async function addTestItem() {
             }
             showStatus('⚠ Failed to sync. Event not added.', 'error', true);
         } else {
+            // Reload from GitHub to ensure we have the latest data
+            await pullFromGitHub();
+            
             // Refresh the schedule display
             if (typeof populateWeeklySchedule === 'function') {
                 populateWeeklySchedule();

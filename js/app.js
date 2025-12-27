@@ -35,6 +35,8 @@ async function init() {
         if (typeof updateCalendarWithEvents === 'function') {
             updateCalendarWithEvents();
         }
+        // Attach click listeners to schedule cells
+        attachScheduleCellListeners();
     }
 }
 
@@ -43,6 +45,104 @@ window.addEventListener('beforeunload', () => {
     clearTimeout(AppState.getInactivityTimer());
     AppState.clearCredentials();
 });
+
+// Function to add click handlers to schedule cells
+function attachScheduleCellListeners() {
+    const cells = document.querySelectorAll('.schedule-cell');
+    const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
+    
+    cells.forEach((cell, index) => {
+        cell.addEventListener('click', async () => {
+            if (!AppState.getToken()) {
+                showStatus('⚠ Please authenticate first', 'error', true);
+                return;
+            }
+            
+            // Calculate which day and time slot this cell represents
+            const slotIndex = Math.floor(index / 5); // Which time slot (0-5)
+            const dayOffset = index % 5; // Which day (0=Mon, 4=Fri)
+            const time = timeSlots[slotIndex];
+            
+            // Calculate the date for this cell
+            const today = new Date(2025, 11, 26); // TESTING: hardcoded
+            const currentWeekStart = new Date(today);
+            const daysSinceMonday = (today.getDay() + 6) % 7;
+            currentWeekStart.setDate(today.getDate() - daysSinceMonday);
+            currentWeekStart.setHours(0, 0, 0, 0);
+            
+            const cellDate = new Date(currentWeekStart);
+            cellDate.setDate(currentWeekStart.getDate() + dayOffset);
+            
+            const year = cellDate.getFullYear();
+            const month = String(cellDate.getMonth() + 1).padStart(2, '0');
+            const day = String(cellDate.getDate()).padStart(2, '0');
+            
+            // Show form with pre-filled date and time
+            await addEventToCell(year, month, day, time);
+        });
+    });
+}
+
+// Add event to a specific cell (called when clicking on schedule cell)
+async function addEventToCell(year, month, day, time) {
+    resetInactivityTimer();
+    
+    const eventData = await showEventForm(year, month, day, time);
+    if (!eventData) {
+        return; // User cancelled
+    }
+    
+    const btnAdd = document.getElementById('btnAddItem');
+    const btnChange = document.getElementById('btnChangeToken');
+    
+    btnAdd.disabled = true;
+    btnChange.disabled = true;
+    
+    try {
+        showStatus('⏳ Adding event...', 'info');
+        
+        const pulled = await pullFromGitHub();
+        if (!pulled) {
+            showStatus('⚠ Failed to load data. Please check your connection or token.', 'error', true);
+            return;
+        }
+        
+        const dateKey = `${eventData.year}-${eventData.month}-${eventData.day}`;
+        
+        const events = AppState.getEvents();
+        if (!events[dateKey]) {
+            events[dateKey] = [];
+        }
+        
+        events[dateKey].push({
+            name: eventData.content,
+            time: eventData.time
+        });
+        
+        const synced = await syncToGitHub();
+        if (!synced) {
+            const lastIndex = events[dateKey].length - 1;
+            events[dateKey].splice(lastIndex, 1);
+            if (events[dateKey].length === 0) {
+                delete events[dateKey];
+            }
+            showStatus('⚠ Failed to sync. Event not added.', 'error', true);
+        } else {
+            // Reload from GitHub to ensure we have the latest data
+            await pullFromGitHub();
+            
+            if (typeof populateWeeklySchedule === 'function') {
+                populateWeeklySchedule();
+            }
+            if (typeof updateCalendarWithEvents === 'function') {
+                updateCalendarWithEvents();
+            }
+        }
+    } finally {
+        btnAdd.disabled = false;
+        btnChange.disabled = false;
+    }
+}
 
 // Event listeners
 document.getElementById('btnAddItem').addEventListener('click', addTestItem);
