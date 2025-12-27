@@ -167,6 +167,56 @@ async function syncToGitHub() {
     }
 }
 
+// Show event form modal
+function showEventForm() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('eventFormModal');
+        const yearInput = document.getElementById('eventYear');
+        const monthInput = document.getElementById('eventMonth');
+        const dayInput = document.getElementById('eventDay');
+        const timeSelect = document.getElementById('eventTime');
+        const contentInput = document.getElementById('eventContent');
+        const okBtn = document.getElementById('eventFormOk');
+        const cancelBtn = document.getElementById('eventFormCancel');
+        
+        // Set default values to current date
+        const now = new Date();
+        yearInput.value = now.getFullYear();
+        monthInput.value = now.getMonth() + 1;
+        dayInput.value = now.getDate();
+        contentInput.value = '';
+        
+        modal.style.display = 'flex';
+        setTimeout(() => contentInput.focus(), 0);
+        
+        const cleanup = () => {
+            modal.style.display = 'none';
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+        };
+        
+        okBtn.onclick = () => {
+            const year = yearInput.value;
+            const month = String(monthInput.value).padStart(2, '0');
+            const day = String(dayInput.value).padStart(2, '0');
+            const time = timeSelect.value;
+            const content = contentInput.value.trim();
+            
+            if (content) {
+                cleanup();
+                resolve({ year, month, day, time, content });
+            } else {
+                showStatus('⚠ Please enter event content', 'error');
+            }
+        };
+        
+        cancelBtn.onclick = () => {
+            cleanup();
+            resolve(null);
+        };
+    });
+}
+
 // Add test item
 async function addTestItem() {
     if (!AppState.getToken()) {
@@ -176,6 +226,12 @@ async function addTestItem() {
     
     resetInactivityTimer(); // Reset timer on user action
     
+    // Show form to get event details
+    const eventData = await showEventForm();
+    if (!eventData) {
+        return; // User cancelled
+    }
+    
     const btnAdd = document.getElementById('btnAddItem');
     const btnChange = document.getElementById('btnChangeToken');
     
@@ -184,20 +240,17 @@ async function addTestItem() {
     btnChange.disabled = true;
     
     try {
-        showStatus('⏳ Adding item...', 'info');
+        showStatus('⏳ Adding event...', 'info');
         
         // Pull latest data first
         const pulled = await pullFromGitHub();
         if (!pulled) {
-            // Better error recovery with actionable message
             showStatus('⚠ Failed to load data. Please check your connection or token.', 'error', true);
             return;
         }
         
-        // Add new item with current date and time
-        const now = new Date();
-        const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const timeString = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        // Create date key from form inputs
+        const dateKey = `${eventData.year}-${eventData.month}-${eventData.day}`;
         
         const events = AppState.getEvents();
         if (!events[dateKey]) {
@@ -205,8 +258,8 @@ async function addTestItem() {
         }
         
         events[dateKey].push({
-            name: 'Test Item ' + Date.now(),
-            time: timeString
+            name: eventData.content,
+            time: eventData.time
         });
         
         // Sync to GitHub
@@ -218,7 +271,7 @@ async function addTestItem() {
             if (events[dateKey].length === 0) {
                 delete events[dateKey];
             }
-            showStatus('⚠ Failed to sync. Item not added.', 'error', true);
+            showStatus('⚠ Failed to sync. Event not added.', 'error', true);
         } else {
             // Refresh the schedule display
             if (typeof populateWeeklySchedule === 'function') {
