@@ -290,6 +290,9 @@ async function addTestItem() {
     btnAdd.disabled = true;
     btnChange.disabled = true;
     
+    // Show splash screen
+    showSplash();
+    
     try {
         showStatus('⏳ Adding event...', 'info');
         
@@ -324,9 +327,6 @@ async function addTestItem() {
             }
             showStatus('⚠ Failed to sync. Event not added.', 'error', true);
         } else {
-            // Show splash while reloading
-            showSplash();
-            
             // Reload from GitHub to ensure we have the latest data
             await pullFromGitHub();
             
@@ -337,11 +337,11 @@ async function addTestItem() {
             if (typeof updateCalendarWithEvents === 'function') {
                 updateCalendarWithEvents();
             }
-            
-            // Hide splash after reload
-            hideSplash();
         }
     } finally {
+        // Hide splash screen
+        hideSplash();
+        
         // Re-enable buttons
         btnAdd.disabled = false;
         btnChange.disabled = false;
