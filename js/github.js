@@ -7,6 +7,43 @@ function handleRateLimitResponse(response) {
     return `⚠ Rate limit exceeded. Try again after ${resetDate}`;
 }
 
+// Calculate which months are visible in the current 3-week view
+function getVisibleMonths() {
+    const today = new Date(2025, 11, 26); // TESTING: hardcoded
+    const weekOffset = AppState.getWeekOffset();
+    const referenceDate = new Date(today);
+    referenceDate.setDate(today.getDate() + (weekOffset * 7));
+    
+    // Find the Sunday of the reference week
+    const currentWeekSunday = new Date(referenceDate);
+    currentWeekSunday.setDate(referenceDate.getDate() - referenceDate.getDay());
+    
+    // Start from Sunday of 1 week before reference week
+    const startDate = new Date(currentWeekSunday);
+    startDate.setDate(currentWeekSunday.getDate() - 7);
+    
+    // End at Saturday of 1 week after current week (21 days total)
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 20);
+    
+    // Collect unique year-month combinations
+    const months = new Set();
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        months.add(`${year}-${month}`);
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // Convert to array of {year, month} objects
+    return Array.from(months).map(ym => {
+        const [year, month] = ym.split('-');
+        return { year: parseInt(year), month: parseInt(month) };
+    });
+}
+
 // Unicode-safe base64 encoding
 function base64EncodeUnicode(str) {
     try {
@@ -35,7 +72,7 @@ function base64DecodeUnicode(str) {
     }
 }
 
-// Pull data from GitHub
+// Pull data from GitHub - loads all month files visible in current 3-week view
 async function pullFromGitHub() {
     // Check if token expired before operation
     if (isTokenExpired()) {
@@ -46,42 +83,56 @@ async function pullFromGitHub() {
     resetInactivityTimer(); // Reset timer on API activity
     
     try {
-        const url = `https://api.github.com/repos/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/contents/${getGitHubPath()}`;
+        // Get all months that are visible in the current view
+        const visibleMonths = getVisibleMonths();
+        console.log('Loading data for months:', visibleMonths);
         
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${AppState.getToken()}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
+        // Load data from each month file
+        const allEvents = {};
         
-        if (response.ok) {
-            const fileData = await response.json();
-            const content = base64DecodeUnicode(fileData.content.replace(/\s/g, ''));
-            AppState.setEvents(JSON.parse(content));
-            showStatus('✓ Loaded data from GitHub', 'success');
-            return true;
-        } else if (response.status === 404) {
-            // File doesn't exist yet, start with empty data
-            AppState.setEvents({});
-            showStatus('ℹ File not found, starting fresh', 'info');
-            return true;
-        } else if (response.status === 403) {
-            // Handle rate limiting
-            const data = await response.json();
-            if (data.message && data.message.includes('rate limit')) {
-                showStatus(handleRateLimitResponse(response), 'error', true);
+        for (const {year, month} of visibleMonths) {
+            const filePath = getGitHubPathForMonth(year, month);
+            const url = `https://api.github.com/repos/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/contents/${filePath}`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${AppState.getToken()}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            if (response.ok) {
+                const fileData = await response.json();
+                const content = base64DecodeUnicode(fileData.content.replace(/\s/g, ''));
+                const monthEvents = JSON.parse(content);
+                
+                // Merge events from this month into allEvents
+                Object.assign(allEvents, monthEvents);
+                console.log(`Loaded ${Object.keys(monthEvents).length} event dates from ${filePath}`);
+            } else if (response.status === 404) {
+                // File doesn't exist yet for this month - that's okay
+                console.log(`No file found for ${filePath} (this is normal for new months)`);
+            } else if (response.status === 403) {
+                // Handle rate limiting
+                const data = await response.json();
+                if (data.message && data.message.includes('rate limit')) {
+                    showStatus(handleRateLimitResponse(response), 'error', true);
+                } else {
+                    showStatus('⚠ Access forbidden. Check token permissions.', 'error', true);
+                }
+                return false;
+            } else if (response.status === 401) {
+                showStatus('⚠ Token expired or invalid. Please change token.', 'error', true);
+                return false;
             } else {
-                showStatus('⚠ Access forbidden. Check token permissions.', 'error', true);
+                console.error(`Error loading ${filePath}:`, response.status);
             }
-            return false;
-        } else if (response.status === 401) {
-            showStatus('⚠ Token expired or invalid. Please change token.', 'error', true);
-            return false;
-        } else {
-            showStatus(`⚠ Failed to load from GitHub (${response.status})`, 'error', true);
-            return false;
         }
+        
+        AppState.setEvents(allEvents);
+        showStatus('✓ Loaded data from GitHub', 'success');
+        console.log(`Total events loaded: ${Object.keys(allEvents).length} dates`);
+        return true;
     } catch (error) {
         console.error('GitHub pull error:', error);
         showStatus('⚠ Network error loading from GitHub', 'error', true);
@@ -89,7 +140,7 @@ async function pullFromGitHub() {
     }
 }
 
-// Sync data to GitHub
+// Sync data to GitHub - saves events to their respective month files
 async function syncToGitHub() {
     // Check if token expired before operation
     if (isTokenExpired()) {
@@ -100,66 +151,90 @@ async function syncToGitHub() {
     resetInactivityTimer(); // Reset timer on API activity
     
     try {
-        const url = `https://api.github.com/repos/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/contents/${getGitHubPath()}`;
+        // Group events by month
+        const eventsByMonth = {};
+        const allEvents = AppState.getEvents();
         
-        // Get current file SHA
-        const getResponse = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${AppState.getToken()}`,
-                'Accept': 'application/vnd.github.v3+json'
+        for (const dateKey in allEvents) {
+            // Parse date key (format: YYYY-MM-DD)
+            const [year, month] = dateKey.split('-');
+            const monthKey = `${year}-${month}`;
+            
+            if (!eventsByMonth[monthKey]) {
+                eventsByMonth[monthKey] = {};
             }
-        });
+            eventsByMonth[monthKey][dateKey] = allEvents[dateKey];
+        }
         
-        let sha = null;
-        if (getResponse.ok) {
-            const fileData = await getResponse.json();
-            sha = fileData.sha;
-        } else if (getResponse.status === 403) {
-            // Handle rate limiting
-            const data = await getResponse.json();
-            if (data.message && data.message.includes('rate limit')) {
-                showStatus(handleRateLimitResponse(getResponse), 'error', true);
+        console.log('Syncing events to months:', Object.keys(eventsByMonth));
+        
+        // Save each month's events to its respective file
+        for (const monthKey in eventsByMonth) {
+            const [year, month] = monthKey.split('-');
+            const filePath = getGitHubPathForMonth(year, month);
+            const url = `https://api.github.com/repos/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/contents/${filePath}`;
+            
+            // Get current file SHA
+            const getResponse = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${AppState.getToken()}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            let sha = null;
+            if (getResponse.ok) {
+                const fileData = await getResponse.json();
+                sha = fileData.sha;
+            } else if (getResponse.status === 403) {
+                // Handle rate limiting
+                const data = await getResponse.json();
+                if (data.message && data.message.includes('rate limit')) {
+                    showStatus(handleRateLimitResponse(getResponse), 'error', true);
+                    return false;
+                }
+            }
+            
+            // Update file with this month's events
+            const content = base64EncodeUnicode(JSON.stringify(eventsByMonth[monthKey], null, 2));
+            const updateResponse = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${AppState.getToken()}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: `Update calendar events for ${year}-${month}`,
+                    content: content,
+                    sha: sha
+                })
+            });
+            
+            if (updateResponse.ok) {
+                console.log(`Successfully synced ${filePath}`);
+            } else if (updateResponse.status === 403) {
+                // Handle rate limiting
+                const data = await updateResponse.json();
+                if (data.message && data.message.includes('rate limit')) {
+                    showStatus(handleRateLimitResponse(updateResponse), 'error', true);
+                } else {
+                    showStatus('⚠ Access forbidden. Check token permissions.', 'error', true);
+                }
+                return false;
+            } else if (updateResponse.status === 401) {
+                showStatus('⚠ Token expired or invalid. Please change token.', 'error', true);
+                return false;
+            } else {
+                const errorData = await updateResponse.json();
+                console.error('Sync failed:', errorData);
+                showStatus('⚠ Sync failed: ' + (errorData.message || 'Unknown error'), 'error', true);
                 return false;
             }
         }
         
-        // Update file
-        const content = base64EncodeUnicode(JSON.stringify(AppState.getEvents(), null, 2));
-        const updateResponse = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${AppState.getToken()}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: 'Update calendar events',
-                content: content,
-                sha: sha
-            })
-        });
-        
-        if (updateResponse.ok) {
-            showStatus('✓ Successfully synced to GitHub', 'success');
-            return true;
-        } else if (updateResponse.status === 403) {
-            // Handle rate limiting
-            const data = await updateResponse.json();
-            if (data.message && data.message.includes('rate limit')) {
-                showStatus(handleRateLimitResponse(updateResponse), 'error', true);
-            } else {
-                showStatus('⚠ Access forbidden. Check token permissions.', 'error', true);
-            }
-            return false;
-        } else if (updateResponse.status === 401) {
-            showStatus('⚠ Token expired or invalid. Please change token.', 'error', true);
-            return false;
-        } else {
-            const errorData = await updateResponse.json();
-            console.error('Sync failed:', errorData);
-            showStatus('⚠ Sync failed: ' + (errorData.message || 'Unknown error'), 'error', true);
-            return false;
-        }
+        showStatus('✓ Successfully synced to GitHub', 'success');
+        return true;
     } catch (error) {
         showStatus('⚠ Network error during sync: ' + error.message, 'error', true);
         console.error('GitHub sync error:', error);

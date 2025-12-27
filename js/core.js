@@ -16,6 +16,11 @@ function getGitHubPath() {
     return `${year}${month}.json`;
 }
 
+// Generate file path for a specific year and month
+function getGitHubPathForMonth(year, month) {
+    return `${year}${String(month).padStart(2, '0')}.json`;
+}
+
 // Encapsulate sensitive data in a module pattern
 const AppState = (() => {
     let _token = null;
