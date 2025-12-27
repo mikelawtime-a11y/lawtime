@@ -192,10 +192,30 @@ function navigateNextWeek() {
     attachScheduleCellListeners();
 }
 
+// Jump to current week
+function navigateToCurrentWeek() {
+    AppState.setWeekOffset(0);
+    
+    // Regenerate calendar and schedule
+    if (typeof generateCalendar === 'function') {
+        generateCalendar();
+    }
+    if (typeof populateWeeklySchedule === 'function') {
+        populateWeeklySchedule();
+    }
+    if (typeof updateCalendarWithEvents === 'function') {
+        updateCalendarWithEvents();
+    }
+    
+    // Re-attach click listeners to new schedule cells
+    attachScheduleCellListeners();
+}
+
 // Event listeners
 document.getElementById('btnAddItem').addEventListener('click', addTestItem);
 document.getElementById('btnChangeToken').addEventListener('click', changeToken);
 document.getElementById('btnPrevWeek').addEventListener('click', navigatePreviousWeek);
+document.getElementById('btnCurrentWeek').addEventListener('click', navigateToCurrentWeek);
 document.getElementById('btnNextWeek').addEventListener('click', navigateNextWeek);
 
 // Run on page load
