@@ -48,34 +48,8 @@ if (document.readyState === 'loading') {
 }
 
 function setupEventDelegation() {
-    const scheduleContainer = document.querySelector('.schedule-container');
-    if (scheduleContainer) {
-        // Click handler
-        scheduleContainer.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('event-item')) {
-                e.stopPropagation();
-                const dateKey = e.target.dataset.dateKey;
-                const eventId = e.target.dataset.eventId;
-                const event = getEventById(dateKey, eventId);
-                if (event) {
-                    await showEventOptions(dateKey, eventId, event);
-                }
-            }
-        });
-        
-        // Keyboard handler for accessibility
-        scheduleContainer.addEventListener('keydown', async (e) => {
-            if (e.target.classList.contains('event-item') && (e.key === 'Enter' || e.key === ' ')) {
-                e.preventDefault();
-                const dateKey = e.target.dataset.dateKey;
-                const eventId = e.target.dataset.eventId;
-                const event = getEventById(dateKey, eventId);
-                if (event) {
-                    await showEventOptions(dateKey, eventId, event);
-                }
-            }
-        });
-    }
+    // Event delegation is now handled by cell click listeners
+    // This ensures clicking anywhere (including on event items) shows the choice modal
 }
 
 // Clear references when page unloads (garbage collector will handle actual cleanup)
@@ -91,11 +65,6 @@ function attachScheduleCellListeners() {
     
     cells.forEach((cell, index) => {
         cell.addEventListener('click', async (e) => {
-            // Don't add new event if clicking on an existing event
-            if (e.target.classList.contains('event-item')) {
-                return;
-            }
-            
             if (!AppState.getToken()) {
                 showStatus(' Please authenticate first', 'error', true);
                 return;
