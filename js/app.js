@@ -28,6 +28,13 @@ async function init() {
     // Load existing data only if we have a valid token
     if (AppState.getToken()) {
         await pullFromGitHub();
+        // Populate the schedule with loaded events
+        if (typeof populateWeeklySchedule === 'function') {
+            populateWeeklySchedule();
+        }
+        if (typeof updateCalendarWithEvents === 'function') {
+            updateCalendarWithEvents();
+        }
     }
 }
 

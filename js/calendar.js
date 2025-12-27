@@ -97,3 +97,112 @@ if (document.readyState === 'loading') {
 } else {
     generateCalendar();
 }
+
+// Populate weekly schedule with events for current week
+function populateWeeklySchedule() {
+    // TESTING: Hardcoded to Friday, December 26, 2025
+    const today = new Date(2025, 11, 26); // Month is 0-indexed, so 11 = December
+    
+    // Calculate current week range (Monday to Friday)
+    const currentWeekStart = new Date(today);
+    const daysSinceMonday = (today.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+    currentWeekStart.setDate(today.getDate() - daysSinceMonday);
+    currentWeekStart.setHours(0, 0, 0, 0);
+    
+    const events = AppState.getEvents();
+    
+    // Clear existing content in schedule cells
+    const cells = document.querySelectorAll('.schedule-cell');
+    cells.forEach(cell => {
+        cell.textContent = '';
+        cell.style.padding = '4px';
+        cell.style.fontSize = '0.75rem';
+        cell.style.overflow = 'hidden';
+        cell.style.textOverflow = 'ellipsis';
+    });
+    
+    // Populate each day of the week
+    for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
+        const currentDate = new Date(currentWeekStart);
+        currentDate.setDate(currentWeekStart.getDate() + dayOffset);
+        
+        const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+        
+        if (events[dateKey] && events[dateKey].length > 0) {
+            // Group events by time slot
+            const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
+            
+            events[dateKey].forEach(event => {
+                const eventHour = parseInt(event.time.split(':')[0]);
+                const eventMinute = parseInt(event.time.split(':')[1]);
+                
+                // Find which time slot this belongs to
+                let slotIndex = -1;
+                if (eventHour === 9) slotIndex = 0;
+                else if (eventHour === 10) slotIndex = 1;
+                else if (eventHour === 11) slotIndex = 2;
+                else if (eventHour === 14) slotIndex = 3;
+                else if (eventHour === 15) slotIndex = 4;
+                else if (eventHour === 16) slotIndex = 5;
+                else if (eventHour >= 9 && eventHour < 14) slotIndex = Math.min(2, Math.floor((eventHour - 9)));
+                else if (eventHour >= 14 && eventHour < 17) slotIndex = Math.min(5, 3 + (eventHour - 14));
+                
+                if (slotIndex >= 0) {
+                    // Calculate cell index: slotIndex * 6 (columns) + 1 (skip time column) + dayOffset
+                    const cellIndex = slotIndex * 6 + 1 + dayOffset;
+                    const cell = cells[cellIndex];
+                    
+                    if (cell) {
+                        const eventDiv = document.createElement('div');
+                        eventDiv.textContent = `${event.time} ${event.name}`;
+                        eventDiv.style.marginBottom = '2px';
+                        eventDiv.style.whiteSpace = 'nowrap';
+                        eventDiv.style.backgroundColor = '#e3f2fd';
+                        eventDiv.style.padding = '2px 4px';
+                        eventDiv.style.borderRadius = '3px';
+                        eventDiv.style.borderLeft = '3px solid #2196F3';
+                        cell.appendChild(eventDiv);
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Add event indicators to calendar days
+function updateCalendarWithEvents() {
+    const events = AppState.getEvents();
+    const calendarDays = document.querySelectorAll('.calendar-day');
+    
+    calendarDays.forEach(dayCell => {
+        const dayNumber = parseInt(dayCell.textContent);
+        
+        // Find which month this day belongs to
+        const isOtherMonth = dayCell.classList.contains('other-month');
+        const today = new Date(2025, 11, 26); // TESTING: hardcoded
+        
+        // Reconstruct the date for this cell
+        const cellMonth = isOtherMonth ? 
+            (dayNumber > 15 ? today.getMonth() - 1 : today.getMonth() + 1) : 
+            today.getMonth();
+        const cellYear = today.getFullYear();
+        
+        const dateKey = `${cellYear}-${String(cellMonth + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+        
+        if (events[dateKey] && events[dateKey].length > 0) {
+            // Add event indicator
+            const indicator = document.createElement('div');
+            indicator.style.position = 'absolute';
+            indicator.style.bottom = '4px';
+            indicator.style.right = '4px';
+            indicator.style.width = '6px';
+            indicator.style.height = '6px';
+            indicator.style.borderRadius = '50%';
+            indicator.style.backgroundColor = '#ff6b6b';
+            indicator.style.border = '1px solid white';
+            
+            dayCell.style.position = 'relative';
+            dayCell.appendChild(indicator);
+        }
+    });
+}

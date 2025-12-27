@@ -219,6 +219,14 @@ async function addTestItem() {
                 delete events[dateKey];
             }
             showStatus('⚠ Failed to sync. Item not added.', 'error', true);
+        } else {
+            // Refresh the schedule display
+            if (typeof populateWeeklySchedule === 'function') {
+                populateWeeklySchedule();
+            }
+            if (typeof updateCalendarWithEvents === 'function') {
+                updateCalendarWithEvents();
+            }
         }
     } finally {
         // Re-enable buttons
