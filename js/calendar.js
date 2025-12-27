@@ -9,17 +9,18 @@ function generateCalendar() {
     const referenceDate = new Date(today);
     referenceDate.setDate(today.getDate() + (weekOffset * 7));
     
-    // Find the Sunday of the reference week
-    const currentWeekSunday = new Date(referenceDate);
-    currentWeekSunday.setDate(referenceDate.getDate() - referenceDate.getDay());
+    // Find the Monday of the reference week (to put current week in middle)
+    const referenceWeekMonday = new Date(referenceDate);
+    const daysSinceMonday = (referenceDate.getDay() + 6) % 7; // Convert Sun=0 to Mon=0
+    referenceWeekMonday.setDate(referenceDate.getDate() - daysSinceMonday);
     
-    // Start from Sunday of 1 week before reference week
-    const startDate = new Date(currentWeekSunday);
-    startDate.setDate(currentWeekSunday.getDate() - 7);
+    // Start from Monday of 1 week before reference week (so reference week is in middle)
+    const startDate = new Date(referenceWeekMonday);
+    startDate.setDate(referenceWeekMonday.getDate() - 7);
     
-    // End at Saturday of 1 week after current week
+    // End 14 days later (3 weeks of weekdays: Mon-Fri)
     const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 20); // 21 days total (3 weeks)
+    endDate.setDate(startDate.getDate() + 14);
     
     // Get calendar elements
     const calendarEl = document.getElementById('calendar');
@@ -52,22 +53,21 @@ function generateCalendar() {
     });
     
     // Calculate current week range (Monday to Friday) using reference date
-    const currentWeekStart = new Date(referenceDate);
-    const daysSinceMonday = (referenceDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
-    currentWeekStart.setDate(referenceDate.getDate() - daysSinceMonday);
+    const currentWeekStart = new Date(referenceWeekMonday);
     currentWeekStart.setHours(0, 0, 0, 0);
     
     const currentWeekEnd = new Date(currentWeekStart);
     currentWeekEnd.setDate(currentWeekStart.getDate() + 4); // Friday
     currentWeekEnd.setHours(23, 59, 59, 999);
     
-    // Generate exactly 3 weeks (21 days) starting from startDate, but only show weekdays
+    // Generate 3 weeks (15 weekdays) starting from startDate (Monday)
     const currentDate = new Date(startDate);
-    for (let i = 0; i < 21; i++) {
-        const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
+    let daysGenerated = 0;
+    while (daysGenerated < 15) {
+        const dayOfWeek = currentDate.getDay();
         
-        // Skip weekends (Sunday = 0, Saturday = 6)
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        // Only process weekdays (Monday = 1 to Friday = 5)
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
             const dayCell = document.createElement('div');
             dayCell.className = 'calendar-day';
             dayCell.textContent = currentDate.getDate();
@@ -88,6 +88,7 @@ function generateCalendar() {
             }
             
             calendarEl.appendChild(dayCell);
+            daysGenerated++;
         }
         
         currentDate.setDate(currentDate.getDate() + 1);
@@ -217,19 +218,22 @@ function updateCalendarWithEvents() {
     const weekOffset = AppState.getWeekOffset();
     const referenceDate = new Date(today);
     referenceDate.setDate(today.getDate() + (weekOffset * 7));
+    referenceWeekMonday = new Date(referenceDate);
+    const daysSinceMonday = (referenceDate.getDay() + 6) % 7;
+    referenceWeekMonday.setDate(referenceDate.getDate() - daysSinceMonday);
     
-    const currentWeekSunday = new Date(referenceDate);
-    currentWeekSunday.setDate(referenceDate.getDate() - referenceDate.getDay());
+    const startDate = new Date(referenceWeekMonday);
+    startDate.setDate(referenceWeekMonday.getDate() - 7);
     
-    const startDate = new Date(currentWeekSunday);
-    startDate.setDate(currentWeekSunday.getDate() - 7);
-    
-    // Create array of visible dates (weekdays only)
+    // Create array of visible dates (weekdays only - 3 weeks, 15 days)
     const visibleDates = [];
     const currentDate = new Date(startDate);
-    for (let i = 0; i < 21; i++) {
+    let daysCollected = 0;
+    while (daysCollected < 15) {
         const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+            visibleDates.push(new Date(currentDate));
+            daysCollected++
             visibleDates.push(new Date(currentDate));
         }
         currentDate.setDate(currentDate.getDate() + 1);
