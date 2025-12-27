@@ -22,6 +22,7 @@ const AppState = (() => {
     let _password = null;
     let _events = {};
     let _inactivityTimer = null;
+    let _weekOffset = 0; // 0 = current week, -1 = previous week, +1 = next week
     
     return {
         getToken: () => _token,
@@ -45,6 +46,10 @@ const AppState = (() => {
         getInactivityTimer: () => _inactivityTimer,
         setInactivityTimer: (val) => {
             _inactivityTimer = val;
+        },
+        getWeekOffset: () => _weekOffset,
+        setWeekOffset: (val) => {
+            _weekOffset = val;
         }
     };
 })();

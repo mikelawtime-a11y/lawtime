@@ -147,9 +147,51 @@ async function addEventToCell(year, month, day, time) {
     }
 }
 
+// Navigate to previous week
+function navigatePreviousWeek() {
+    const currentOffset = AppState.getWeekOffset();
+    AppState.setWeekOffset(currentOffset - 1);
+    
+    // Regenerate calendar and schedule
+    if (typeof generateCalendar === 'function') {
+        generateCalendar();
+    }
+    if (typeof populateWeeklySchedule === 'function') {
+        populateWeeklySchedule();
+    }
+    if (typeof updateCalendarWithEvents === 'function') {
+        updateCalendarWithEvents();
+    }
+    
+    // Re-attach click listeners to new schedule cells
+    attachScheduleCellListeners();
+}
+
+// Navigate to next week
+function navigateNextWeek() {
+    const currentOffset = AppState.getWeekOffset();
+    AppState.setWeekOffset(currentOffset + 1);
+    
+    // Regenerate calendar and schedule
+    if (typeof generateCalendar === 'function') {
+        generateCalendar();
+    }
+    if (typeof populateWeeklySchedule === 'function') {
+        populateWeeklySchedule();
+    }
+    if (typeof updateCalendarWithEvents === 'function') {
+        updateCalendarWithEvents();
+    }
+    
+    // Re-attach click listeners to new schedule cells
+    attachScheduleCellListeners();
+}
+
 // Event listeners
 document.getElementById('btnAddItem').addEventListener('click', addTestItem);
 document.getElementById('btnChangeToken').addEventListener('click', changeToken);
+document.getElementById('btnPrevWeek').addEventListener('click', navigatePreviousWeek);
+document.getElementById('btnNextWeek').addEventListener('click', navigateNextWeek);
 
 // Run on page load
 init();

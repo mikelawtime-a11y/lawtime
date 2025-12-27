@@ -6,11 +6,16 @@ function generateCalendar() {
     const today = new Date(2025, 11, 26); // Month is 0-indexed, so 11 = December
     // const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Find the Sunday of the current week
-    const currentWeekSunday = new Date(today);
-    currentWeekSunday.setDate(today.getDate() - today.getDay());
+    // Apply week offset
+    const weekOffset = AppState.getWeekOffset();
+    const referenceDate = new Date(today);
+    referenceDate.setDate(today.getDate() + (weekOffset * 7));
     
-    // Start from Sunday of 1 week before current week
+    // Find the Sunday of the reference week
+    const currentWeekSunday = new Date(referenceDate);
+    currentWeekSunday.setDate(referenceDate.getDate() - referenceDate.getDay());
+    
+    // Start from Sunday of 1 week before reference week
     const startDate = new Date(currentWeekSunday);
     startDate.setDate(currentWeekSunday.getDate() - 7);
     
@@ -48,10 +53,10 @@ function generateCalendar() {
         calendarEl.appendChild(dayHeader);
     });
     
-    // Calculate current week range (Monday to Friday)
-    const currentWeekStart = new Date(today);
-    const daysSinceMonday = (today.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
-    currentWeekStart.setDate(today.getDate() - daysSinceMonday);
+    // Calculate current week range (Monday to Friday) using reference date
+    const currentWeekStart = new Date(referenceDate);
+    const daysSinceMonday = (referenceDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+    currentWeekStart.setDate(referenceDate.getDate() - daysSinceMonday);
     currentWeekStart.setHours(0, 0, 0, 0);
     
     const currentWeekEnd = new Date(currentWeekStart);
@@ -104,10 +109,15 @@ function populateWeeklySchedule() {
     // TESTING: Hardcoded to Friday, December 26, 2025
     const today = new Date(2025, 11, 26); // Month is 0-indexed, so 11 = December
     
-    // Calculate current week range (Monday to Friday)
-    const currentWeekStart = new Date(today);
-    const daysSinceMonday = (today.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
-    currentWeekStart.setDate(today.getDate() - daysSinceMonday);
+    // Apply week offset
+    const weekOffset = AppState.getWeekOffset();
+    const referenceDate = new Date(today);
+    referenceDate.setDate(today.getDate() + (weekOffset * 7));
+    
+    // Calculate current week range (Monday to Friday) using reference date
+    const currentWeekStart = new Date(referenceDate);
+    const daysSinceMonday = (referenceDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+    currentWeekStart.setDate(referenceDate.getDate() - daysSinceMonday);
     currentWeekStart.setHours(0, 0, 0, 0);
     
     const events = AppState.getEvents();
