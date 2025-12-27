@@ -64,7 +64,8 @@ function attachScheduleCellListeners() {
             const time = timeSlots[slotIndex];
             
             // Calculate the date for this cell using week offset
-            const today = new Date(2025, 11, 26); // TESTING: hardcoded
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const weekOffset = AppState.getWeekOffset();
             const referenceDate = new Date(today);
             referenceDate.setDate(today.getDate() + (weekOffset * 7));

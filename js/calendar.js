@@ -2,9 +2,7 @@
 
 function generateCalendar() {
     const now = new Date();
-    // TESTING: Hardcoded to Friday, December 26, 2025
-    const today = new Date(2025, 11, 26); // Month is 0-indexed, so 11 = December
-    // const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // Apply week offset
     const weekOffset = AppState.getWeekOffset();
@@ -106,8 +104,8 @@ if (document.readyState === 'loading') {
 // Populate weekly schedule with events for current week
 function populateWeeklySchedule() {
     console.log('=== populateWeeklySchedule called ===');
-    // TESTING: Hardcoded to Friday, December 26, 2025
-    const today = new Date(2025, 11, 26); // Month is 0-indexed, so 11 = December
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // Apply week offset
     const weekOffset = AppState.getWeekOffset();
@@ -211,7 +209,8 @@ function updateCalendarWithEvents() {
         
         // Find which month this day belongs to
         const isOtherMonth = dayCell.classList.contains('other-month');
-        const today = new Date(2025, 11, 26); // TESTING: hardcoded
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
         // Reconstruct the date for this cell
         const cellMonth = isOtherMonth ? 

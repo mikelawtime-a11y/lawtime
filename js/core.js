@@ -102,6 +102,35 @@ function showStatus(message, type, persistent = false) {
     }
 }
 
+// Update current date/time display
+function updateDateTime() {
+    const dateTimeEl = document.getElementById('currentDateTime');
+    if (dateTimeEl) {
+        const now = new Date();
+        const options = { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        };
+        dateTimeEl.textContent = now.toLocaleDateString('en-US', options);
+    }
+}
+
+// Initialize date/time display and update every second
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+    });
+} else {
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+}
+
 // Custom modal dialog helper
 function showModal(title, message, placeholder = '', isPassword = false) {
     resetInactivityTimer(); // Reset timer on user interaction

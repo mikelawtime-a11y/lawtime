@@ -9,7 +9,8 @@ function handleRateLimitResponse(response) {
 
 // Calculate which months are visible in the current 3-week view
 function getVisibleMonths() {
-    const today = new Date(2025, 11, 26); // TESTING: hardcoded
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekOffset = AppState.getWeekOffset();
     const referenceDate = new Date(today);
     referenceDate.setDate(today.getDate() + (weekOffset * 7));
