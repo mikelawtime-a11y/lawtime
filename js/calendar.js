@@ -1,4 +1,4 @@
-// Calendar functionality - Shows 4 weeks: 1 week past + current week + 2 weeks future
+// Calendar functionality - Shows 3 weeks: 1 week past + current week + 1 week future
 
 function generateCalendar() {
     const now = new Date();
@@ -14,9 +14,9 @@ function generateCalendar() {
     const startDate = new Date(currentWeekSunday);
     startDate.setDate(currentWeekSunday.getDate() - 7);
     
-    // End at Saturday of 2 weeks after current week
+    // End at Saturday of 1 week after current week
     const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 27); // 28 days total (4 weeks)
+    endDate.setDate(startDate.getDate() + 20); // 21 days total (3 weeks)
     
     // Get calendar elements
     const calendarEl = document.getElementById('calendar');
@@ -58,9 +58,9 @@ function generateCalendar() {
     currentWeekEnd.setDate(currentWeekStart.getDate() + 4); // Friday
     currentWeekEnd.setHours(23, 59, 59, 999);
     
-    // Generate exactly 4 weeks (28 days) starting from startDate, but only show weekdays
+    // Generate exactly 3 weeks (21 days) starting from startDate, but only show weekdays
     const currentDate = new Date(startDate);
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 21; i++) {
         const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
         
         // Skip weekends (Sunday = 0, Saturday = 6)
