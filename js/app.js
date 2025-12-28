@@ -171,22 +171,25 @@ async function addEventToCell(year, month, day, time) {
 }
 
 // Navigate to previous week
-function navigatePreviousWeek() {
+async function navigatePreviousWeek() {
     const currentOffset = AppState.getWeekOffset();
     AppState.setWeekOffset(currentOffset - 1);
+    await pullFromGitHub(); // Reload data for new visible months
     refreshCalendarDisplay();
 }
 
 // Navigate to next week
-function navigateNextWeek() {
+async function navigateNextWeek() {
     const currentOffset = AppState.getWeekOffset();
     AppState.setWeekOffset(currentOffset + 1);
+    await pullFromGitHub(); // Reload data for new visible months
     refreshCalendarDisplay();
 }
 
 // Jump to current week
-function navigateToCurrentWeek() {
+async function navigateToCurrentWeek() {
     AppState.setWeekOffset(0);
+    await pullFromGitHub(); // Reload data for current week's months
     refreshCalendarDisplay();
 }
 
