@@ -18,15 +18,17 @@ function generateCalendar() {
     const startDate = new Date(referenceWeekMonday);
     startDate.setDate(referenceWeekMonday.getDate() - 7);
     
-    // End 14 days later (3 weeks of weekdays: Mon-Fri)
+    // End date is Friday of the third week
+    // We need to count: Week1 (Mon-Fri = 5 days) + Week2 (Mon-Fri = 5 days) + Week3 (Mon-Fri = 5 days)
+    // That's 3 weeks minus weekends = 15 weekdays, but in calendar days that's 2 weeks + 4 days = 18 days
     const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 14);
+    endDate.setDate(startDate.getDate() + 18); // 18 days from first Monday = Friday of 3rd week
     
     // Get calendar elements
     const calendarEl = document.getElementById('calendar');
     const monthEl = document.getElementById('calendarMonth');
     
-    // Set header to show date range
+    // Set header to show date range (first Monday to last Friday)
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const startMonth = monthNames[startDate.getMonth()];
