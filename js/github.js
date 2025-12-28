@@ -59,17 +59,18 @@ function getVisibleMonths() {
     const referenceDate = new Date(today);
     referenceDate.setDate(today.getDate() + (weekOffset * 7));
     
-    // Find the Sunday of the reference week
-    const currentWeekSunday = new Date(referenceDate);
-    currentWeekSunday.setDate(referenceDate.getDate() - referenceDate.getDay());
+    // Find the Monday of the reference week (same logic as generateCalendar)
+    const referenceWeekMonday = new Date(referenceDate);
+    const daysSinceMonday = (referenceDate.getDay() + 6) % 7; // Convert Sun=0 to Mon=0
+    referenceWeekMonday.setDate(referenceDate.getDate() - daysSinceMonday);
     
-    // Start from Sunday of 1 week before reference week
-    const startDate = new Date(currentWeekSunday);
-    startDate.setDate(currentWeekSunday.getDate() - 7);
+    // Start from Monday of 1 week before reference week
+    const startDate = new Date(referenceWeekMonday);
+    startDate.setDate(referenceWeekMonday.getDate() - 7);
     
-    // End at Saturday of 1 week after current week (21 days total)
+    // End 18 days later (covers all 3 weeks of weekdays displayed)
     const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 20);
+    endDate.setDate(startDate.getDate() + 18);
     
     // Collect unique year-month combinations
     const months = new Set();
