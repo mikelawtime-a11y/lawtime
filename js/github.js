@@ -219,6 +219,9 @@ async function syncToGitHub() {
         const eventsByMonth = {};
         const allEvents = AppState.getEvents();
         
+        // Track all months that currently have files (we'll need to check if any became empty)
+        const visibleMonths = getVisibleMonths();
+        
         for (const dateKey in allEvents) {
             // Parse date key (format: YYYY-MM-DD)
             const [year, month] = dateKey.split('-');
@@ -231,6 +234,19 @@ async function syncToGitHub() {
         }
         
         logger.log('Syncing events to months:', Object.keys(eventsByMonth));
+        
+        // Check if any visible month files need to be updated to empty (became empty)
+        for (const {year, month} of visibleMonths) {
+            const monthKey = `${year}-${month}`;
+            const filePath = getGitHubPathForMonth(year, month);
+            const url = `https://api.github.com/repos/${CONFIG.GITHUB_OWNER}/${CONFIG.GITHUB_REPO}/contents/${filePath}`;
+            
+            // If this month has no events, make sure we update it to empty object
+            if (!eventsByMonth[monthKey]) {
+                // Add empty object for this month so it gets saved below
+                eventsByMonth[monthKey] = {};
+            }
+        }
         
         // Save each month's events to its respective file
         for (const monthKey in eventsByMonth) {
